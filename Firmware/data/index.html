@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RFM gateway</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            font-size: 12px;
+        }
+
+        h1 {
+            text-align: center;
+            background-color: #00274f;
+            font-size: 16px;
+            color: #bab8d5;
+            padding: 5px 0;
+        }
+
+        h2 {
+            background-color: #323a42;
+            color: #bab8d5;
+            font-size: 14px;
+            padding: 5px;
+            margin: 1em 0;
+        }
+
+        h3 {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        button, input::file-selector-button, input[type="submit"] {
+            padding: 6px 9px;
+            cursor: pointer;
+        }
+
+        .btnbar {
+            padding: 0.5em 0;
+        }
+
+        .tab button {
+            border-radius: 3px;
+            background-color: #DDD;
+            color: #00274f;
+            border: 1px solid #00274f;
+        }
+
+        #navi {
+            background-color: #00274f;
+        }
+
+        #navi button {
+            background-color: transparent;
+            font-size: larger;
+            font-weight: bold;
+            color: #DDD;
+            border: none;
+        }
+
+        #navi button.active {
+            background-color: #acb3bb;
+            color: #333;
+            border: 10px 10px 0 0;
+        }
+
+        input[type=text], input[type=password], select {
+            padding: 6px 2px;
+            width: 90%;
+        }
+
+        input[type=checkbox] {
+            margin: 0 0.5em 0.5em 0;
+        }
+
+        div#wrapper {
+            background-color:#acb3bb;
+            max-width: 640px;
+            margin: 5px auto;
+        }
+
+        div.tab {
+            display: none;
+            padding: 1em;
+        }
+
+        fieldset {
+            border: 2px solid #323a42;
+            border-radius: 5px;
+            padding: 1em;
+            margin-bottom: 1em;
+        }
+
+        fieldset > div {
+            margin-bottom: 1em;
+        }
+
+        legend {
+            font-size: 14px;
+            color: #323a42;
+            padding: 0.2em 0.5em;
+            border: 2px solid #323a42;
+        }
+
+        div.col50 {
+            float: left;
+            width: 50%;
+        }
+
+        div.col25 {
+            float: left;
+            width: 25%;
+        }
+
+        div.row:after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        #footer {
+            background-color: #00274f;
+            color: #bab8d5;
+            margin: 0;
+            color: white;
+            height: 2em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #footer a {
+            color: white;
+            text-decoration: none;
+        }
+
+        #log {
+            display: block;
+            width: 100%;
+            height: 50em;
+            resize: vertical;
+            font-family: "Lucida Console", "Courier New", monospace;
+        }
+    </style>
+</head>
+<body>
+    <div id="wrapper">
+        <h1>RFM gateway</h1>
+
+        <div id="navi">
+            <button class="navi-item" target="tab-status">status</button>
+            <button class="navi-item" target="tab-settings">settings</button>
+            <button class="navi-item" target="tab-log">log</button>
+        </div>
+
+        <div id="tab-status" class="tab">
+            <div class="panel">
+                <h2>WiFi</h2>
+                <div class="row">
+                    <div class="col50">
+                        <h3>client status</h3>
+                        <span id="wifistatus"></span>
+                    </div>
+                    <div class="col50">
+                        <h3>MAC address</h3>
+                        <span id="macaddress"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col50">
+                        <h3>IP address</h3>
+                        <span id="ipaddress"></span>
+                    </div>
+                    <div class="col50">
+                        <h3>hostname</h3>
+                        <span id="hostname"></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col50">
+                        <h3>SSID</h3>
+                        <span id="stassid"></span>
+                    </div>
+                    <div class="col50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>System</h2>
+                <div class="row">
+                    <div class="col50">
+                        <h3>firmware</h3>
+                        <span id="fw_version"></span>
+                    </div>
+                    <div class="col50">
+                        <h3>uptime</h3>
+                        <span id="uptime"></span>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col50">
+                        <h3>radio model</h3>
+                        <span id="radio_model"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-settings" class="tab">
+            <fieldset id="radiosetup" hidden>
+                <legend>radio setup</legend>
+
+                <div>
+                    <h3>radio module type</h3>
+                    <select id="selradiotype">
+                        <option value="0">RFM69CW-315S2</option>
+                        <option value="1">RFM69CW-433S2</option>
+                        <option value="2">RFM69CW-868S2</option>
+                        <option value="3">RFM69CW-915S2</option>
+                        <option value="100">RFM69HCW-315S2</option>
+                        <option value="101">RFM69HCW-433S2</option>
+                        <option value="102">RFM69HCW-868S2</option>
+                        <option value="103">RFM69HCW-915S2</option>
+                        <option value="202">RFM95W-868S2</option>
+                        <option value="203">RFM95W-915S2</option>
+                        <option value="300">RFM96W-315S2</option>
+                        <option value="301">RFM96W-433S2</option>
+                        <option value="402">RFM97W-868S2</option>
+                        <option value="403">RFM97W-915S2</option>
+                        <option value="500">RFM98W-315S2</option>
+                        <option value="501">RFM98W-433S2</option>
+                    </select>
+                </div>
+                <div>
+                    <h3>f_corr / F_STEP</h3>
+                    <input id="inpf_corr" type="text" value="0">
+                </div>
+                <div>
+                    <button id="btnsaveradiocfg" >save</button>
+                </div>
+                <div>
+                    <h3>frequency / Hz</h3>
+                    <input id="inpfreq" type="text" placeholder="868300000">
+                </div>
+                <div>
+                    <h3>tx power / dBm</h3>
+                    <input id="inptx_pwr" type="text" value="0">
+                </div>
+                <div>
+                    <h3>bitrate / bps</h3>
+                    <input id="inpbitrate" type="text" value="5000">
+                </div>
+                <div>
+                    <button id="btntxtest">TX test</button>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>WiFi</legend>
+
+                <div class="btnbar">
+                    <button id="btnscan">scan</button>
+                </div>
+
+                <div hidden id="scanresults">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>SSID</th>
+                                <th>channel</th>
+                                <th>RSSI</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scanbody">
+                        </tbody>
+                    </table>
+                    <div class="row">
+                        <div class="col50">
+                            <h3>SSID</h3>
+                            <input id="wifissid" type="text"/>
+                        </div>
+                        <div class="col50">
+                            <h3>password</h3>
+                            <input id="wifipassword" type="password"/>
+                        </div>
+                    </div>
+                    <div class="btnbar">
+                        <button id="btnsavewifi">save WiFi settings</button>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>MQTT broker</legend>
+
+                <div class="row">
+                    <div class="col50">
+                        <h3>host</h3>
+                        <input id="mqtt_host" type="text">
+                    </div>
+                    <div class="col25">
+                        <h3>port</h3>
+                        <input id="mqtt_port" type="text">
+                    </div>
+                    <div class="col25">
+                        <h3>TLS</h3>
+                        <input id="mqtt_tls" type="checkbox">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col50">
+                        <h3>user</h3>
+                        <input id="mqtt_user" type="text">
+                    </div>
+                    <div class="col50">
+                        <h3>password</h3>
+                        <input id="mqtt_pass" type="text">
+                    </div>
+                </div>
+
+                <div>
+                    <h3>basetopic</h3>
+                    <input id="mqtt_basetopic" type="text">
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>system</legend>
+
+                <div>
+                    <h3>Firmware</h3>
+                    <form id="form_upload" method='POST' enctype='multipart/form-data'>
+                        <input id="inp_file" type='file' accept='.bin,.bin.gz' name='firmware'>
+                        <input id="btn_upload" type='submit' value='Update Firmware' disabled>
+                        <div id="progressDiv" class="progress">
+                            <span class="progress-bar" id="progressBar" style="width: 0%"></span>
+                            <span id="progressText"></span>
+                        </div>
+                    </form>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>radio</legend>
+
+                <div>
+                    <h3>application</h3>
+                    <select id="selapplication">
+                        <option id="app_433_rcpulse" disabled value="0">433 MHz RC pulse gateway</option>
+                        <option id="app_868gw" disabled value="1">868 MHz sensor gateway</option>
+                    </select>
+                </div>
+
+                <div id="gw868options">
+                    <div class="row">
+                        <div class="col50">
+                            <h3>RX modes</h3>
+                            <div>
+                                <input class="rxmode" type="checkbox"><span>TX21/TX25/TX27/TX29/TX37</span>
+                            </div>
+                            <div>
+                                <input class="rxmode" type="checkbox"><span>TX35</span>
+                            </div>
+                            <div>
+                                <input class="rxmode" type="checkbox"><span>TX22</span>
+                            </div>
+                            <div>
+                                <input class="rxmode" type="checkbox"><span>Energy Count 3000</span>
+                            </div>
+                            <div>
+                                <input class="rxmode" type="checkbox"><span>Bresser 7 in 1</span>
+                            </div>
+                            <div>
+                                <input class="rxmode" type="checkbox"><span>EMT7170</span>
+                            </div>
+                        </div>
+
+                        <div class="col50">
+                            <h3>RX interval / s</h3>
+                            <input id="gw868_interval" type="text">
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="btnbar">
+                <button id="savebtn">save</button>
+                <button id="rebootbtn">reboot</button>
+            </div>
+        </div>
+
+        <div id="tab-log" class="tab">
+            <div class="panel">
+                <textarea id ="log" readonly></textarea>
+            </div>
+            <div class="btnbar">
+                <button id="btnclearlog">clear log</button>
+            </div>
+        </div>
+
+        <div id="footer">
+            <span>2024 <a href="https://www.seegel-systeme.de">www.seegel-systeme.de</a></span>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+        var websocket;
+        function _(query) {
+            return document.querySelector(query);
+        }
+
+        function __(query) {
+            return document.querySelectorAll(query);
+        }
+
+        function _$(elename) {
+            return document.createElement(elename);
+        }
+
+        function scanWifi() {
+            const xhrwifi = new XMLHttpRequest();
+            xhrwifi.onload = (ev) => {
+                let scanobj = JSON.parse(ev.target.responseText);
+                let scanbody = _("#scanbody");
+                if (scanobj.status < 0) {
+                    setTimeout(scanWifi, 1000);
+                    return;
+                }
+
+                scanobj.results.forEach(element => {
+                    let newrow = _$("tr");
+                    scanbody.appendChild(newrow);
+
+                    let td = _$("td");
+                    let inp = _$("input");
+                    inp.type = "radio";
+                    inp.name = "ssid";
+                    inp.value = element.ssid;
+                    inp.onclick = (ev) => {
+                        _("#wifissid").value = ev.target.value;
+                    };
+                    td.appendChild(inp);
+                    newrow.appendChild(td);
+
+                    td = _$("td");
+                    td.innerText = element.ssid;
+                    newrow.appendChild(td);
+                    td = _$("td");
+                    td.innerText = element.channel;
+                    newrow.appendChild(td);
+                    td = _$("td");
+                    td.innerText = element.rssi;
+                    newrow.appendChild(td);    
+                });
+                _("#btnscan").disabled = false;
+            };
+
+            xhrwifi.open("GET", "scan");
+            xhrwifi.send();
+        }
+
+        function getConfig() {
+            const xhr = new XMLHttpRequest();
+            xhr.onload = (ev) => {
+                let cfg = JSON.parse(xhr.responseText);
+                if ("radio" in cfg) {
+                    let radio = cfg["radio"];
+                    let model = radio["rfmType"] << 8 | radio["freqBand"];
+
+                    if ([0x02, 0x102].indexOf(model) > -1) {
+                        _("#app_868gw").disabled = false;
+                    }
+
+                    for (let opt of __("#selradiotype option")) {
+                        if (opt.getAttribute("value") == model.toString(16)) {
+                            _("#radio_model").innerText = opt.innerText;
+                            break;
+                        }
+                    }
+                }
+                else
+                    _("#radiosetup").style.display = "block";
+
+                if ("config" in cfg) {
+                    if ("mqtt" in cfg["config"]) {
+                        let mqtt = cfg["config"]["mqtt"];
+                        _("#mqtt_host").value = mqtt["host"];
+                        _("#mqtt_port").value = mqtt["port"];
+                        _("#mqtt_user").value = mqtt["user"];
+                        _("#mqtt_pass").value = mqtt["pass"];
+                        _("#mqtt_basetopic").value = mqtt["basetopic"];
+                    }
+
+                    if ("application" in cfg["config"]) {
+                        let iApp = parseInt(cfg["config"]["application"]);
+                        _("#selapplication").value = iApp;
+
+                        switch (iApp) {
+                        case 1:
+                            let settings = cfg["config"]["appSettings"];
+                            _("#gw868_interval").value = settings["interval"];
+                            let rxmodes = settings["rxmodes"];
+                            let i = 0;
+                            for (let ele of __("#gw868options .rxmode")) {
+                                console.log("option " + i);
+                                console.log(rxmodes & (1<<i) != 0);
+                                ele.checked = (rxmodes & (1<<i)) != 0;
+                                i++;
+                            }
+
+                        break;
+                        }
+                    }
+                }
+            }
+            xhr.open("GET", "config");
+            xhr.send();
+        }
+
+        function getStatus() {
+            const xhr = new XMLHttpRequest();
+            xhr.timeout = 5000;
+            xhr.onload = (ev) => {
+                let status = JSON.parse(xhr.responseText);
+                if ("WiFi" in status) {
+                    let wifistat = "?";
+                    switch (status.WiFi.status) {
+                        case 0: wifistat = "Idle"; break;
+                        case 1: wifistat = "no SSID"; break;
+                        case 3: wifistat = "connected "; break;
+                        case 4: wifistat = "connection failed"; break;
+                        case 5: wifistat = "connection lost"; break;
+                        case 6: wifistat = "wrong password"; break;
+                        case 7: wifistat = "disconnected"; break;
+                    }
+                    _("#wifistatus").innerText = wifistat;
+                    _("#ipaddress").innerText = status.WiFi.ipsta;
+                    _("#macaddress").innerText = status.WiFi.mac;
+                    _("#hostname").innerText = status.WiFi.hostname;
+                    _("#stassid").innerText = status.WiFi.sta_ssid;
+                }
+
+                if ("system" in status) {
+                    _("#fw_version").innerText = status.system.firmware;
+
+                    let secs = status.system.uptime;
+                    let tmp = [];
+                    let days = Math.floor(secs / 3600/ 24);
+                    if (days > 0) {
+                        secs -= days * 3600 * 24;
+                        tmp.push(days + " d");
+                    }
+                    let hours = Math.floor(secs / 3600);
+                    if (hours > 0) {
+                        secs -= hours * 3600;
+                        tmp.push(hours + " h");
+                    }
+                    let minutes = Math.floor(secs / 60);
+                    if (minutes > 0) {
+                        secs -= minutes * 60;
+                        tmp.push(minutes + " min");
+                    }
+                    tmp.push(secs + " s");
+
+                    _("#uptime").innerHTML = tmp.join(", ");
+                }
+            }
+
+            xhr.onloadend = (ev) => {
+                setTimeout(getStatus, 5000);
+            };
+
+            xhr.open("GET", "status");
+            xhr.send();
+        }
+
+        window.onload = (ev) => {
+            for (let ele of __("button.navi-item")) {
+                ele.onclick = (ev) => {
+                    for (let tab of __("div.tab"))
+                        tab.style.display = "none";
+                    _("#" + ev.target.getAttribute("target")).style.display = "block";
+                    
+                    for (let btn of __("button.navi-item"))
+                        btn.classList.remove("active");
+                    ev.target.classList.add("active");
+                }
+            }
+
+            _("#btnscan").onclick = (ev) => {
+                _("#scanbody").innerHTML = "";
+                _("#wifipassword").value = "";
+                _("#scanresults").style.display = "block";
+                _("#btnscan").disabled = true;
+                scanWifi();
+            }
+
+            _("#btnsavewifi").onclick = (ev) => {
+                let ssid = _("#wifissid").value;
+                
+                const xhr = new XMLHttpRequest();
+                xhr.onload = (ev) => {
+                    _("#scanresults").style.display = "none";
+                    alert("WiFi credentials saved.");
+                };
+                
+                xhr.open("POST", "setwifi");
+                xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+                let params = "ssid=" + encodeURIComponent(ssid) + 
+                    "&pass=" + encodeURIComponent(_("#wifipassword").value); 
+                xhr.send(params);
+            };
+
+            _("#savebtn").onclick = (ev) => {
+                let iApp = parseInt(_("#selapplication").value);
+                let param = {
+                    "config": {
+                        "mqtt": {
+                            "host": _("#mqtt_host").value,
+                            "port": parseInt(_("#mqtt_port").value),
+                            "tls": _("#mqtt_tls").checked,
+                            "user": _("#mqtt_user").value,
+                            "pass": _("#mqtt_pass").value,
+                            "basetopic": _("#mqtt_basetopic").value
+                        },
+                        "application": iApp
+                    }
+                };
+
+                switch (iApp) {
+                    case 1: // 868 sensor gateway
+                        let i = 0;
+                        let rxmodes = 0;
+                        for (let ele of __("#gw868options .rxmode")) {
+                            if (ele.checked)
+                                rxmodes |= 1<<i;
+                            i++;
+                        }
+                        param["config"]["appSettings"] = {
+                            "rxmodes": rxmodes,
+                            "interval": parseInt(_("#gw868_interval").value)
+                        }
+                        break;
+                }
+
+                const xhrconfig = new XMLHttpRequest();
+                xhrconfig.onloadend = (ev) => {
+                    if(ev.target.status == 200)
+                        alert("Saved successfully!");
+                    else
+                        alert("Saved error!");
+                };
+                xhrconfig.open("POST", "/config");
+                xhrconfig.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+                xhrconfig.send(JSON.stringify(param));
+            }
+
+            _("#btntxtest").onclick = (ev) => {
+                const xhrtxtest = new XMLHttpRequest();
+                let param = {
+                    "freq": parseInt(_("#inpfreq").value),
+                    "fCorr": parseInt(_("#inpf_corr").value),
+                    "pwr": parseInt(_("#inptx_pwr").value),
+                    "baud": parseInt(_("#inpbitrate").value)
+                };
+                xhrtxtest.open("POST", "/txtest");
+                xhrtxtest.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+                xhrtxtest.send(JSON.stringify(param));
+            }
+
+            _("#btnsaveradiocfg").onclick = (ev) => {
+                const xhreecfg = new XMLHttpRequest();
+                let param = {
+                    "radio": {
+                        "rfmType": parseInt(_("#selradiotype").value, 16) >> 8,
+                        "freqBand": parseInt(_("#selradiotype").value, 16) & 0xFF,
+                        "fCorr": parseInt(_("#inpf_corr").value)
+                    }
+                };
+                xhreecfg.open("POST", "/config");
+                xhreecfg.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+                xhreecfg.send(JSON.stringify(param));
+            }
+
+            _("#btnclearlog").onclick = (ev) => {
+                _("#log").value = "";
+            };
+
+            _("#form_upload").onsubmit = (ev) => {
+                ev.preventDefault();
+
+                var file = _("#inp_file").files[0];
+                var formdata = new FormData();
+                formdata.append(_("#inp_file").name, file, file.name);
+                const ajaxUpl = new XMLHttpRequest();
+
+                ajaxUpl.onloadstart = (ev) => {
+                    _("#progressDiv").style.display = "block";
+                    _("#btn_upload").disabled = true;
+                    _("#inp_file").disabled = true;
+                    _("#progressText").innerHTML = "Uploading...";
+                };
+
+                ajaxUpl.upload.onprogress = (ev) => {
+                    var perc = Math.round(ev.loaded / ev.total * 100);
+                    _("#progressBar").style.width = perc + '%';
+                    _("#progressText").innerHTML = "Uploading..." + perc + " %";
+                };
+
+                ajaxUpl.onload = (ev) => {
+                    _("#inp_file").value = "";
+                    _("#progressText").innerHTML = "Upload successful. Rebooting...";
+                };
+
+                ajaxUpl.onerror = (ev) => {
+                    _("#progressText").innerHTML = "Upload error!";
+                };
+
+                ajaxUpl.open('post', '/update');
+                ajaxUpl.setRequestHeader('Access-Control-Allow-Headers', '*');
+                ajaxUpl.setRequestHeader('Access-Control-Allow-Origin', '*');
+                ajaxUpl.send(formdata);
+            };
+
+            _("#inp_file").onchange = (ev) => {
+                var file = ev.target.files[0];
+                _("#btn_upload").disabled = !(file && file.name);
+            };
+
+            _(".navi-item").click();
+
+            getConfig();
+            getStatus();
+
+            websocket = new WebSocket("ws");
+            websocket.onopen = (ev) => {
+                console.log("web socket open");
+            }
+
+            websocket.onclose = (ev) => {
+                console.log("web socket close");
+            }
+
+            websocket.onmessage = (ev) => {
+                //let nl = document.createTextNode(ev.data + "\n");
+                let nl = document.createTextNode("New text ");
+                //_("#log").appendChild(nl);
+                _("#log").value += ev.data + "\n";
+
+            }
+
+            setInterval(function () {
+                //console.log("WS state: " + websocket.readyState);
+            }, 2000)
+        }
+    </script>
+</body>
+</html>
