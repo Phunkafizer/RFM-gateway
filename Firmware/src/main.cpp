@@ -3,8 +3,11 @@
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <DNSServer.h>
 #include "main.h"
 #include "applications/868gw.h"
+#include "applications/fs20.h"
+#include "applications/rc433.h"
 
 enum RfmType : uint8_t {
     RFM_TYPE_RFM69xx = 0,
@@ -31,13 +34,15 @@ static const char AP_PASS[] PROGMEM = "12345678";
 static const IPAddress apAddress(4, 3, 2, 1);
 static const IPAddress apSubnet(255, 255, 255, 0);
 static const uint16_t WEBPORT = 80;
+static const uint8_t DNS_PORT = 53;
 
-static AsyncWebServer websrv(WEBPORT);
+AsyncWebServer websrv(WEBPORT);
 AsyncWebSocket ws("/ws");
 WiFiClient espClient;
 WiFiClientSecure espSecClient;
 PubSubClient mqtt;
 bool rebootFlag = false;
+DNSServer dnsServer;
 
 String mqttHost;
 String mqttUser;
@@ -94,7 +99,7 @@ void setConfig(const JsonObject &obj) {
         mqttPass = jMqtt[F("pass")].as<String>();
         if (jMqtt.containsKey(F("basetopic")))
             baseTopic = jMqtt[F("basetopic")].as<String>();
-        else
+        if (baseTopic.isEmpty())
             baseTopic = F("home/rfm-gateway");
 
         mqtt.setServer(mqttHost.c_str(), jMqtt[F("port")] | 1883);
@@ -108,10 +113,19 @@ void setConfig(const JsonObject &obj) {
         }
 
         switch (obj[F("application")].as<int>()) {
+        case 0:
+            if (rfm69 != nullptr)
+                radioapp = new Rc433Transceiver(obj[F("appSettings")].as<JsonObject>());
+            break;
         case 1:
             if (rfm69 != nullptr)
                 radioapp = new Gw868(obj[F("appSettings")].as<JsonObject>());
             break;
+        case 2:
+            if (rfm69 != nullptr)
+                radioapp = new FS20(obj[F("appSettings")].as<JsonObject>());
+            break;
+
         default:
             break;
         }
@@ -144,6 +158,17 @@ void wiFiEvent(WiFiEvent_t event) {
     }
 
     if (event == WIFI_EVENT_STAMODE_DISCONNECTED) {
+    }
+}
+
+void mqttCallback(const char topic[], byte* payload, unsigned int length) {
+    if (radioapp != nullptr) {
+        String sTop(topic);
+        sTop = sTop.substring(baseTopic.length() + 1);
+        String sPayload;
+        sPayload.concat((const char*) payload, length);
+        radioapp->onMqttMessage(sTop, sPayload);
+        ws.textAll("Rec. MQTT ~/" + sTop + ": " + sPayload);
     }
 }
 
@@ -289,18 +314,35 @@ void setup() {
             request->send(400);
         }
         confBuf.clear();
-        
     });
 
     websrv.on("/txtest", HTTP_POST, [](AsyncWebServerRequest *request) {}, [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {}, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
         JsonDocument doc;
         deserializeJson(doc, (char*) data, len);
-        rfm69->txTest(
-            doc[F("freq")].as<uint32_t>(),
-            doc[F("fCorr")].as<int16_t>(), 
-            doc[F("pwr")].as<int8_t>(),
-            doc[F("baud")].as<uint16_t>()
-        );
+        if (rfm69 == nullptr)
+            delete rfm69;
+
+        uint8_t rfmtype = doc[F("rfmType")].as<uint8_t>();
+        switch (rfmtype) {
+        case RFM_TYPE_RFM69xx:
+            rfm69 = new Rfm69();
+            rfm69->begin(16, false);
+            break;
+        case RFM_TYPE_RFM69Hxx:
+            rfm69 = new Rfm69();
+            rfm69->begin(16, true);
+            break;
+        default: break;
+        }
+
+        if (rfm69 != nullptr) {
+            rfm69->txTest(
+                doc[F("freq")].as<uint32_t>(),
+                doc[F("fCorr")].as<int16_t>(), 
+                doc[F("pwr")].as<int8_t>(),
+                doc[F("baud")].as<uint16_t>()
+            );
+        }
         request->send(200);
     });
 
@@ -331,7 +373,7 @@ void setup() {
     );
 
     websrv.onNotFound([](AsyncWebServerRequest *request) {
-        request->send(404);
+        request->redirect(F("/"));
     });
 
     File f = LittleFS.open(FPSTR(FILE_CONFIG), "r");
@@ -341,10 +383,14 @@ void setup() {
             setConfig(cfg.as<JsonObject>());
         f.close();
     }
+
+    mqtt.setCallback(mqttCallback);
 }
+
 
 void loop() {
     static bool btnState = true;
+    static bool apMode = false;
     if (btnState) {
         if (analogRead(A0) > 512)
             btnState = false;
@@ -352,12 +398,19 @@ void loop() {
             if (millis() > 2000) {
                 //start access point
                 btnState = false;
+                apMode = true;
                 WiFi.persistent(false);
                 WiFi.softAPConfig(apAddress, apAddress, apSubnet);
                 WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
                 WiFi.mode(WIFI_AP_STA);
+                dnsServer.start(DNS_PORT, "*", apAddress);
             }
     }
+
+    if (apMode)
+        dnsServer.processNextRequest();
+
+    mqtt.loop();
 
     if (WiFi.localIP().isSet()) {
         if (!mqttHost.isEmpty() && !mqtt.connected()) {
@@ -380,6 +433,8 @@ void loop() {
             );
             if (con) {
                 mqtt.publish(statusTopic.c_str(), "online", true);
+                String subtopic = baseTopic + "/#";
+                mqtt.subscribe(subtopic.c_str());
                 ws.textAll(F("MQTT connected"));
             }
             else

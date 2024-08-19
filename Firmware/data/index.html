@@ -137,12 +137,21 @@
             text-decoration: none;
         }
 
-        #log {
-            display: block;
-            width: 100%;
-            height: 50em;
+        #console {
+            background-color: black;
+            height: 40em;
+            color: white;
             resize: vertical;
+            overflow: auto;
+            padding: 0 0.5em;
+        }
+
+        #console div {
             font-family: "Lucida Console", "Courier New", monospace;
+        }
+
+        .appsettings {
+            display: none;
         }
     </style>
 </head>
@@ -356,10 +365,35 @@
                     <select id="selapplication">
                         <option id="app_433_rcpulse" disabled value="0">433 MHz RC pulse gateway</option>
                         <option id="app_868gw" disabled value="1">868 MHz sensor gateway</option>
+                        <option id="app_868_fs20" disabled value="2">868 MHz FS20 gateway</option>
                     </select>
                 </div>
 
-                <div id="gw868options">
+                <div class="appsettings">
+                    <h3>Codecs</h3>
+                    <div class="row">
+                        <div class="col50">
+                            <input type="checkbox" value="0"><span>Intertechno tristate</span>
+                        </div>
+                        <div class="col50">
+                            <input type="checkbox" value="1"><span>Brennenstuhl</span>
+                        </div>
+                        <div class="col50">
+                            <input type="checkbox" value="2"><span>Intertechno 32</span>
+                        </div>
+                        <div class="col50">
+                            <input type="checkbox" value="3"><span>Pilota casa</span>
+                        </div>
+                        <div class="col50">
+                            <input type="checkbox" value="4"><span>Emylo</span>
+                        </div>
+                        <div class="col50">
+                            <input type="checkbox" value="5"><span>EV1527</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="gw868options" class="appsettings">
                     <div class="row">
                         <div class="col50">
                             <h3>RX modes</h3>
@@ -389,6 +423,11 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="appsettings">
+                    Testsettings 3
+
+                </div>
             </fieldset>
 
             <div class="btnbar">
@@ -398,8 +437,7 @@
         </div>
 
         <div id="tab-log" class="tab">
-            <div class="panel">
-                <textarea id ="log" readonly></textarea>
+            <div id="console">
             </div>
             <div class="btnbar">
                 <button id="btnclearlog">clear log</button>
@@ -476,8 +514,15 @@
                     let radio = cfg["radio"];
                     let model = radio["rfmType"] << 8 | radio["freqBand"];
 
+                    if ([0x01, 0x101].indexOf(model) > -1) {
+                        // we have a 433 MHz RFM69(H) mmodule
+                        _("#app_433_rcpulse").disabled = false;
+                    }
+                    
                     if ([0x02, 0x102].indexOf(model) > -1) {
+                        // we have a 868 MHz RFM69(H) mmodule
                         _("#app_868gw").disabled = false;
+                        _("#app_868_fs20").disabled = false;
                     }
 
                     for (let opt of __("#selradiotype option")) {
@@ -503,6 +548,7 @@
                     if ("application" in cfg["config"]) {
                         let iApp = parseInt(cfg["config"]["application"]);
                         _("#selapplication").value = iApp;
+                        _("#selapplication").onchange();
 
                         switch (iApp) {
                         case 1:
@@ -511,12 +557,9 @@
                             let rxmodes = settings["rxmodes"];
                             let i = 0;
                             for (let ele of __("#gw868options .rxmode")) {
-                                console.log("option " + i);
-                                console.log(rxmodes & (1<<i) != 0);
                                 ele.checked = (rxmodes & (1<<i)) != 0;
                                 i++;
                             }
-
                         break;
                         }
                     }
@@ -667,6 +710,7 @@
             _("#btntxtest").onclick = (ev) => {
                 const xhrtxtest = new XMLHttpRequest();
                 let param = {
+                    "rfmType": parseInt(_("#selradiotype").value, 16) >> 8,
                     "freq": parseInt(_("#inpfreq").value),
                     "fCorr": parseInt(_("#inpf_corr").value),
                     "pwr": parseInt(_("#inptx_pwr").value),
@@ -692,7 +736,7 @@
             }
 
             _("#btnclearlog").onclick = (ev) => {
-                _("#log").value = "";
+                _("#console").innerHTML = "";
             };
 
             _("#form_upload").onsubmit = (ev) => {
@@ -738,29 +782,32 @@
 
             _(".navi-item").click();
 
+            _("#selapplication").onchange = (ev) => {
+                let selindex = parseInt(_("#selapplication").value);
+                
+                for (let ele of __(".appsettings"))
+                    ele.style.display = "none";
+
+                __(".appsettings")[selindex].style.display = "block";
+            }
+
             getConfig();
             getStatus();
 
             websocket = new WebSocket("ws");
             websocket.onopen = (ev) => {
-                console.log("web socket open");
             }
 
             websocket.onclose = (ev) => {
-                console.log("web socket close");
             }
 
             websocket.onmessage = (ev) => {
-                //let nl = document.createTextNode(ev.data + "\n");
-                let nl = document.createTextNode("New text ");
-                //_("#log").appendChild(nl);
-                _("#log").value += ev.data + "\n";
-
+                let e = _$("div");
+                e.innerHTML = ev.data;
+                let cons = _("#console");
+                cons.append(e);
+                cons.scrollTop = cons.scrollHeight;
             }
-
-            setInterval(function () {
-                //console.log("WS state: " + websocket.readyState);
-            }, 2000)
         }
     </script>
 </body>

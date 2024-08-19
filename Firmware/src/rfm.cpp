@@ -89,17 +89,14 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
 
     const uint16_t deviation = 9900 / (32E06 / (1UL<<19));
 
-    struct Rfm69Config {
-        Registers reg;
-        uint8_t val;
-    } const cfg[] = {
+    const Rfm69Config cfg[] = {
         {RegOpMode, MODE_STDBY<<2}, // standby
         {RegFdevMsb,        deviation >> 8},
         {RegFdevLsb,        deviation & 0xFF},
         {RegDataModul,      0}, // Packet mode, FSK
         {RegPreambleMsb,    0},
         {RegPreambleLsb,    10},
-        {RegPacketConfig1,  0<<5}, // data whitening
+        {RegPacketConfig1,  0<<5}, // fixed length, no data whitening, crc off
         {RegPacketConfig2,  0},
         {RegFifoThresh,     0x8f},
         {RegRssiThresh,     220}, // *-0.5dBm
@@ -113,7 +110,11 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
         {RegTestLna,        0x2D} // high sensitive mode
     };
 
-    for (uint8_t i=0; i<sizeof(cfg)/sizeof(cfg[0]); i++)
+    writeConfig(cfg, sizeof(cfg)/sizeof(cfg[0]));
+}
+
+void Rfm69::writeConfig(const Rfm69Config cfg[], const uint8_t num) {
+    for (uint8_t i=0; i<num; i++)
         writeReg(cfg[i].reg, cfg[i].val);
 }
 
@@ -144,6 +145,21 @@ void Rfm69::loop() {
             break;
         }
     }
+}
+
+Rfm69::FifoLevel Rfm69::getFifoLevel() {
+    uint8_t iq2 = readReg(RegIrqFlags2);
+
+    if ( (iq2 & 0xE0) == 0 )
+        return FIFO_EMPTY;
+
+    if ( (iq2 & (1<<7)) != 0 )
+        return FIFO_FULL;
+
+    if ( (iq2 & (1<<5)) != 0 )
+        return FIFO_THRESH;
+
+    return FIFO_NOTEMPTY;
 }
 
 void Rfm69::setMode(const Mode mode) {
@@ -242,16 +258,20 @@ void Rfm69::send(const uint8_t *data, const int size, const bool varSize) {
         volatile uint8_t f = readReg(RegFifo);
     }
     if (varSize) { //variable length
-        setReg(RegPacketConfig1, 1<<7, 1<<7);
+        setReg(RegPacketConfig1, 1<<7, 1<<7);  // set PacketFormat
         writeReg(RegFifo, (uint8_t) size);
     }
     else { //fixed length
-        setReg(RegPacketConfig1, 0<<7, 1<<7);
+        setReg(RegPacketConfig1, 0<<7, 1<<7); // unset PacketFormat
         writeReg(RegPayloadLength, size);
     }
 
     writeRegBuf(RegFifo, data, size);
     setMode(MODE_TX);
+}
+
+void Rfm69::writeFifo(const uint8_t *buf, uint8_t size) {
+    writeRegBuf(RegFifo, buf, size);
 }
 
 void Rfm69::txTest(const uint32_t freq_hz, const int16_t f_corr, const int8_t pwr, const uint16_t baud) {
@@ -283,6 +303,7 @@ void Rfm69::startReceive(const int size) {
         writeReg(RegPayloadLength, 255);
     }
     else {
+        // fixed or unlimieted length (size == 0)
         setReg(RegPacketConfig1, 0<<7, 1<<7);
         writeReg(RegPayloadLength, size);
     }
@@ -302,6 +323,17 @@ uint8_t Rfm69::getPayload(uint8_t *buf) {
         result = rxSize;
 
     readFifo(buf, result);
+    return result;
+}
+
+uint8_t Rfm69::getPayload(uint8_t *buf, const uint8_t maxlen) {
+    uint8_t result = 0;
+
+    auto iq2 = readReg(RegIrqFlags2);
+    while ( (iq2 & (1<<6)) && (result < maxlen) )  { // FIFO not empty 
+        buf[result++] = readReg(RegFifo);
+        iq2 = readReg(RegIrqFlags2);
+    }
     return result;
 }
 

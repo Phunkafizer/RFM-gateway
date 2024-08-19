@@ -8,3 +8,4 @@ extern PubSubClient mqtt;
 extern AsyncWebSocket ws;
 extern String baseTopic;
 extern Rfm69 *rfm69;
+extern AsyncWebServer websrv;

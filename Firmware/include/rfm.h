@@ -53,6 +53,7 @@ public:
         RegOpMode = 0x01,
         RegDataModul = 0x02,
         RegBitrateMsb = 0x03,
+        RegBitrateLsb = 0x04,
         RegFdevMsb = 0x05,
         RegFdevLsb = 0x06,
         RegFrfMsb = 0x07,
@@ -64,6 +65,8 @@ public:
         RegLna = 0x18,
         RegRxBw = 0x19,
         RegAfcBw = 0x1A,
+        RegOokPeak = 0x1B,
+        RegOokFix = 0x1D,
         RegAfcFei = 0x1E,
         RegAfcMsb = 0x1F,
         RegAfcLsb = 0x20,
@@ -115,7 +118,23 @@ public:
         RXBWFSK_10_4KHZ = 2<<3 | 5<<0,      // 10.416 kHz
         RXBWFSK_5_2KHZ = 2<<3 | 6<<0,       // 5.208 kHz
         RXBWFSK_2_6KHZ = 2<<3 | 7<<0,       // 2.604 kHz
+
+        RXBWASK_250KHZ = 0<<3 | 0<<0       // 250 kHz
+
     };
+
+    enum FifoLevel {
+        FIFO_EMPTY,
+        FIFO_NOTEMPTY,
+        FIFO_THRESH,
+        FIFO_FULL
+    };
+
+    struct Rfm69Config {
+        Registers reg;
+        uint8_t val;
+    };
+
     void begin(const uint8_t pinSS, const bool isHighPower);
     void loop();
     void stop();
@@ -126,6 +145,7 @@ public:
     void setFreq(const uint32_t freq_hz);
     void setBitrate(const uint16_t bit_s);
     void setFCorr(const int16_t fcorr);
+    void writeConfig(const Rfm69Config cfg[], const uint8_t num);
 
     void send(const uint8_t *data, const int size, const bool varSize = true);
     void txTest(const uint32_t freq_hz, const int16_t f_corr, const int8_t pwr, const uint16_t baud);
@@ -134,7 +154,10 @@ public:
     void startReceive(const int size = -1);
     bool payloadReady();
     uint8_t getPayload(uint8_t *buf);
+    uint8_t getPayload(uint8_t *buf, const uint8_t maxlen);
     int8_t getRssi();
+    FifoLevel getFifoLevel();
+    void writeFifo(const uint8_t *buf, uint8_t len);
 };
 
 #endif

@@ -414,9 +414,17 @@ Gw868::Gw868(const JsonObject &conf):
         nextSwitch(0) {
     rfm69->setFreq(868300000UL);
 
+    Rfm69::Rfm69Config cfg[] = {
+        {Rfm69::RegRxBw, 2<<5 | Rfm69::RXBWFSK_250KHZ},
+        {Rfm69::RegRssiThresh, 195}, // /-0.5 dBm
+        {Rfm69::RegDataModul, 0<<3}, // packet mode, FSK
+        
+        {Rfm69::RegPacketConfig1, 0x00}, // fixed or unlimited length, no whitening, no crc
+    };
+    rfm69->writeConfig(cfg, sizeof(cfg) / sizeof(cfg[0]));
+
     rxModes = conf[F("rxmodes")];
     interval = (conf[F("interval")] | 10) * 1000UL;
-
 }
 
 void Gw868::loop() {
