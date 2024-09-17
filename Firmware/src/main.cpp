@@ -8,6 +8,7 @@
 #include "applications/868gw.h"
 #include "applications/fs20.h"
 #include "applications/rc433.h"
+#include "html.h"
 
 enum RfmType : uint8_t {
     RFM_TYPE_RFM69xx = 0,
@@ -130,6 +131,11 @@ void setConfig(const JsonObject &obj) {
             break;
         }
     }
+
+    if (rfm69 != nullptr) {
+        int8_t pwr = obj[F("txPwr")] | 13;
+        rfm69->setTxPower(pwr);
+    }
 }
 
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
@@ -185,9 +191,13 @@ void setup() {
     ws.onEvent(onWsEvent);
     websrv.addHandler(&ws);
     websrv.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        #ifdef DEBUG
         if (LittleFS.exists(F("/index.html"))) {
             request->send(LittleFS, F("/index.html"), F("text/html"));
+            return;
         }
+        #endif
+        request->send_P(200, F("text/html"), html);
     });
 
     websrv.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -247,7 +257,7 @@ void setup() {
         JsonObject jSystem = doc[F("system")].to<JsonObject>();
         jSystem[F("uptime")] = millis() / 1000;
         jSystem[F("freeHeap")] = ESP.getFreeHeap();
-        jSystem[F("firmware")] = F("1.4");
+        jSystem[F("firmware")] = F(BUILD_VERSION);
 
         JsonObject jMqtt = doc[F("mqtt")].to<JsonObject>();
         jMqtt[F("state")] = mqtt.state();
@@ -314,13 +324,19 @@ void setup() {
             request->send(400);
         }
         confBuf.clear();
+
     });
 
     websrv.on("/txtest", HTTP_POST, [](AsyncWebServerRequest *request) {}, [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {}, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        request->send(200);
+
         JsonDocument doc;
         deserializeJson(doc, (char*) data, len);
-        if (rfm69 == nullptr)
+        
+        if (rfm69 != nullptr) {
             delete rfm69;
+            rfm69 = nullptr;
+        }
 
         uint8_t rfmtype = doc[F("rfmType")].as<uint8_t>();
         switch (rfmtype) {
@@ -332,7 +348,8 @@ void setup() {
             rfm69 = new Rfm69();
             rfm69->begin(16, true);
             break;
-        default: break;
+        default: 
+            break;
         }
 
         if (rfm69 != nullptr) {
@@ -343,7 +360,6 @@ void setup() {
                 doc[F("baud")].as<uint16_t>()
             );
         }
-        request->send(200);
     });
 
     websrv.on("/update", HTTP_POST, 
@@ -391,6 +407,10 @@ void setup() {
 void loop() {
     static bool btnState = true;
     static bool apMode = false;
+
+    #ifdef DEBUG
+        apMode = true;
+    #endif
     if (btnState) {
         if (analogRead(A0) > 512)
             btnState = false;
@@ -399,16 +419,17 @@ void loop() {
                 //start access point
                 btnState = false;
                 apMode = true;
-                WiFi.persistent(false);
-                WiFi.softAPConfig(apAddress, apAddress, apSubnet);
-                WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
-                WiFi.mode(WIFI_AP_STA);
-                dnsServer.start(DNS_PORT, "*", apAddress);
             }
     }
 
-    if (apMode)
+    if (apMode) {
+        WiFi.persistent(false);
+        WiFi.softAPConfig(apAddress, apAddress, apSubnet);
+        WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
+        WiFi.mode(WIFI_AP_STA);
+        dnsServer.start(DNS_PORT, "*", apAddress);
         dnsServer.processNextRequest();
+    }
 
     mqtt.loop();
 

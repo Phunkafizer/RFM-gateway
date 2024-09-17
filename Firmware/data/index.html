@@ -98,6 +98,18 @@
             margin-bottom: 1em;
         }
 
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 90%;
+            height: 5px;
+            background: #323a42;
+            border-radius: 5px;
+            outline: none;
+            -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+            transition: opacity .2s;
+        }
+
         legend {
             font-size: 14px;
             color: #323a42;
@@ -369,26 +381,32 @@
                     </select>
                 </div>
 
+                <div>
+                    <h3>Output power</h3>
+                    <input type="range" min="-18" max="13" value="13" class="slider" id="txPwrSlider">
+                    <div><span id="txPwr">13 dBm</span></div>
+                </div>
+
                 <div class="appsettings">
                     <h3>Codecs</h3>
                     <div class="row">
                         <div class="col50">
-                            <input type="checkbox" value="0"><span>Intertechno tristate</span>
+                            <input type="checkbox" value="0" checked><span>Intertechno tristate</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="1"><span>Brennenstuhl</span>
+                            <input type="checkbox" value="1" checked><span>Brennenstuhl</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="2"><span>Intertechno 32</span>
+                            <input type="checkbox" value="2" checked><span>Intertechno 32</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="3"><span>Pilota casa</span>
+                            <input type="checkbox" value="3" checked><span>Pilota casa</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="4"><span>Emylo</span>
+                            <input type="checkbox" value="4" checked><span>Emylo</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="5"><span>EV1527</span>
+                            <input type="checkbox" value="5" checked><span>EV1527</span>
                         </div>
                     </div>
                 </div>
@@ -425,8 +443,6 @@
                 </div>
 
                 <div class="appsettings">
-                    Testsettings 3
-
                 </div>
             </fieldset>
 
@@ -531,13 +547,23 @@
                             break;
                         }
                     }
+
+                    if (radio["rfmType"] == 0) {
+                        _("#txPwrSlider").setAttribute("min", -18);
+                        _("#txPwrSlider").setAttribute("max", 13);
+                    }
+                    else {
+                        _("#txPwrSlider").setAttribute("min", 2);
+                        _("#txPwrSlider").setAttribute("max", 20);
+                    }
                 }
                 else
                     _("#radiosetup").style.display = "block";
 
                 if ("config" in cfg) {
-                    if ("mqtt" in cfg["config"]) {
-                        let mqtt = cfg["config"]["mqtt"];
+                    let config = cfg["config"];
+                    if ("mqtt" in config) {
+                        let mqtt = config["mqtt"];
                         _("#mqtt_host").value = mqtt["host"];
                         _("#mqtt_port").value = mqtt["port"];
                         _("#mqtt_user").value = mqtt["user"];
@@ -545,14 +571,14 @@
                         _("#mqtt_basetopic").value = mqtt["basetopic"];
                     }
 
-                    if ("application" in cfg["config"]) {
-                        let iApp = parseInt(cfg["config"]["application"]);
+                    if ("application" in config) {
+                        let iApp = parseInt(config["application"]);
                         _("#selapplication").value = iApp;
                         _("#selapplication").onchange();
 
                         switch (iApp) {
                         case 1:
-                            let settings = cfg["config"]["appSettings"];
+                            let settings = config["appSettings"];
                             _("#gw868_interval").value = settings["interval"];
                             let rxmodes = settings["rxmodes"];
                             let i = 0;
@@ -563,6 +589,9 @@
                         break;
                         }
                     }
+
+                    _("#txPwrSlider").value = parseInt(config["txPwr"]);
+                    _("#txPwrSlider").dispatchEvent(new CustomEvent('input'));
                 }
             }
             xhr.open("GET", "config");
@@ -675,7 +704,8 @@
                             "pass": _("#mqtt_pass").value,
                             "basetopic": _("#mqtt_basetopic").value
                         },
-                        "application": iApp
+                        "application": iApp,
+                        "txPwr": parseInt(_("#txPwrSlider").value)
                     }
                 };
 
@@ -789,6 +819,10 @@
                     ele.style.display = "none";
 
                 __(".appsettings")[selindex].style.display = "block";
+            }
+
+            _("#txPwrSlider").oninput = (ev) => {
+                _("#txPwr").innerText = ev.target.value + " dBm";
             }
 
             getConfig();

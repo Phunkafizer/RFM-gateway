@@ -85,7 +85,7 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
     RfmBase::begin(pinSS);
     highPower = isHighPower;
     
-    setMode(MODE_FS);
+    setMode(MODE_SLEEP);
 
     const uint16_t deviation = 9900 / (32E06 / (1UL<<19));
 
@@ -93,6 +93,9 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
         {RegOpMode, MODE_STDBY<<2}, // standby
         {RegFdevMsb,        deviation >> 8},
         {RegFdevLsb,        deviation & 0xFF},
+        {RegFrfMsb,         0xe4},
+        {RegFrfMid,         0xc0},
+        {RegFrfLsb,         0x00},
         {RegDataModul,      0}, // Packet mode, FSK
         {RegPreambleMsb,    0},
         {RegPreambleLsb,    10},
@@ -111,6 +114,7 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
     };
 
     writeConfig(cfg, sizeof(cfg)/sizeof(cfg[0]));
+    setMode(MODE_FS);
 }
 
 void Rfm69::writeConfig(const Rfm69Config cfg[], const uint8_t num) {

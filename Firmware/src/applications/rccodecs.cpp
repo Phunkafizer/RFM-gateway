@@ -115,7 +115,7 @@ bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
 
         #ifdef DEBUGRCDECODER
         Serial.print("Matching pulses ");
-        for (uint8_t p=0; p<params.pulsesPerSymbol; p++)
+        for (uint8_t p=0; p<params->pulsesPerSymbol; p++)
             Serial.print(String(pulseBuf[bp+p]) + ' ');
         Serial.print(": ");
         #endif
