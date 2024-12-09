@@ -23,3 +23,6 @@ fp-info-cache
 # Exported BOM files
 *.xml
 *.csv
+
+# this file is generated automatically on build
+Firmware/include/html.h

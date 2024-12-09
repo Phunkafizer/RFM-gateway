@@ -179,11 +179,42 @@ void mqttCallback(const char topic[], byte* payload, unsigned int length) {
 }
 
 void setup() {
+    pinMode(2, OUTPUT); // ESP12 LED, GPIO2 also used for 1wire
+    digitalWrite(2, HIGH);
+
+    bool apMode = false;
+    LittleFS.begin();
+
+    while (analogRead(A0) < 512) {
+        yield();
+        if (millis() > 2000) {
+            digitalWrite(2, LOW); // LED on
+            apMode = true;
+
+            if (millis() > 10000) { // factory reset
+                LittleFS.remove(FPSTR(FILE_CONFIG));
+                LittleFS.end();
+                WiFi.disconnect(true);
+                ESP.eraseConfig();
+                ESP.reset();
+                while (true);
+            }
+        }
+    }
+
+    if (apMode) {
+        WiFi.persistent(false);
+        WiFi.softAPConfig(apAddress, apAddress, apSubnet);
+        WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
+        WiFi.mode(WIFI_AP_STA);
+        dnsServer.start(DNS_PORT, "*", apAddress);
+        dnsServer.processNextRequest();
+    }
+
     SPI.begin();
     Serial.begin(76800);
     WiFi.begin();
     MDNS.begin(FPSTR(HOSTNAME));
-    LittleFS.begin();
 
     loadRadioSetup();
     
@@ -405,32 +436,6 @@ void setup() {
 
 
 void loop() {
-    static bool btnState = true;
-    static bool apMode = false;
-
-    #ifdef DEBUG
-        apMode = true;
-    #endif
-    if (btnState) {
-        if (analogRead(A0) > 512)
-            btnState = false;
-        else
-            if (millis() > 2000) {
-                //start access point
-                btnState = false;
-                apMode = true;
-            }
-    }
-
-    if (apMode) {
-        WiFi.persistent(false);
-        WiFi.softAPConfig(apAddress, apAddress, apSubnet);
-        WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
-        WiFi.mode(WIFI_AP_STA);
-        dnsServer.start(DNS_PORT, "*", apAddress);
-        dnsServer.processNextRequest();
-    }
-
     mqtt.loop();
 
     if (WiFi.localIP().isSet()) {
