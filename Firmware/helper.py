@@ -12,7 +12,7 @@ def copy_html(source, target, env):
             fout.write('\n)html";')
     
 def post_build(source, target, env):
-    print("Version: " + env.GetProjectOption("version"))
+    print("Version: " + env.GetProjectOption("custom_version"))
     print("project dir: " + env["PROJECT_DIR"])
     print("build: " + env["BUILD_DIR"])
 

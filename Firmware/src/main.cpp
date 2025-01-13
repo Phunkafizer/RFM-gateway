@@ -9,6 +9,7 @@
 #include "applications/fs20.h"
 #include "applications/rc433.h"
 #include "html.h"
+#include <Ticker.h>
 
 enum RfmType : uint8_t {
     RFM_TYPE_RFM69xx = 0,
@@ -52,7 +53,20 @@ String baseTopic;
 
 Rfm69 *rfm69 = nullptr;
 
-void loadRadioSetup() {
+Ticker ledblink;
+uint16_t leddata = 0x8000;
+
+void ledTickcb() {
+    static uint16_t mask = 0x8000;
+
+    digitalWrite(LED_BUILTIN, (leddata & mask) == 0);
+    mask >>= 1;
+    if (!mask)
+        mask = 0x8000;
+}
+
+bool loadRadioSetup() {
+    bool result = false;
     File f = LittleFS.open(FPSTR(FILE_RADIO), "r");
     if (f) {
         JsonDocument cfg;
@@ -64,11 +78,13 @@ void loadRadioSetup() {
             case RFM_TYPE_RFM69xx:
                 rfm69 = new Rfm69;
                 rfm69->begin(16, false);
+                result = true;
                 break;
 
             case RFM_TYPE_RFM69Hxx:
                 rfm69 = new Rfm69;
                 rfm69->begin(16, true);
+                result = true;
                 break;
 
             default:
@@ -80,6 +96,7 @@ void loadRadioSetup() {
         }
         f.close();
     }
+    return result;
 }
 
 void setConfig(const JsonObject &obj) {
@@ -179,36 +196,40 @@ void mqttCallback(const char topic[], byte* payload, unsigned int length) {
 }
 
 void setup() {
-    pinMode(2, OUTPUT); // ESP12 LED, GPIO2 also used for 1wire
-    digitalWrite(2, HIGH);
+    pinMode(LED_BUILTIN, OUTPUT); // ESP12 LED, GPIO2 also used for 1wire
+    digitalWrite(LED_BUILTIN, HIGH);
+    
+    ledblink.attach(0.1, ledTickcb);
 
     bool apMode = false;
     LittleFS.begin();
 
+    File f = LittleFS.open(FPSTR(FILE_CONFIG), "r");
+    if (f) {
+        JsonDocument cfg;
+        if (deserializeJson(cfg, f) == DeserializationError::Ok)
+            setConfig(cfg.as<JsonObject>());
+        f.close();
+    }
+
     while (analogRead(A0) < 512) {
         yield();
         if (millis() > 2000) {
-            digitalWrite(2, LOW); // LED on
             apMode = true;
-
+            leddata = 0xA000;
             if (millis() > 10000) { // factory reset
+                ledblink.detach();
                 LittleFS.remove(FPSTR(FILE_CONFIG));
                 LittleFS.end();
                 WiFi.disconnect(true);
                 ESP.eraseConfig();
+                digitalWrite(LED_BUILTIN, LOW);
+                while (analogRead(A0) < 512)
+                    yield();
                 ESP.reset();
                 while (true);
             }
         }
-    }
-
-    if (apMode) {
-        WiFi.persistent(false);
-        WiFi.softAPConfig(apAddress, apAddress, apSubnet);
-        WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
-        WiFi.mode(WIFI_AP_STA);
-        dnsServer.start(DNS_PORT, "*", apAddress);
-        dnsServer.processNextRequest();
     }
 
     SPI.begin();
@@ -216,7 +237,18 @@ void setup() {
     WiFi.begin();
     MDNS.begin(FPSTR(HOSTNAME));
 
-    loadRadioSetup();
+    if (!loadRadioSetup())
+        apMode = true;
+
+    if (apMode) {
+        leddata = 0xA000;
+        WiFi.persistent(false);
+        WiFi.softAPConfig(apAddress, apAddress, apSubnet);
+        WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
+        WiFi.mode(WIFI_AP_STA);
+        dnsServer.start(DNS_PORT, "*", apAddress);
+        dnsServer.processNextRequest();
+    }
     
     websrv.begin();
     ws.onEvent(onWsEvent);
@@ -422,14 +454,6 @@ void setup() {
     websrv.onNotFound([](AsyncWebServerRequest *request) {
         request->redirect(F("/"));
     });
-
-    File f = LittleFS.open(FPSTR(FILE_CONFIG), "r");
-    if (f) {
-        JsonDocument cfg;
-        if (deserializeJson(cfg, f) == DeserializationError::Ok)
-            setConfig(cfg.as<JsonObject>());
-        f.close();
-    }
 
     mqtt.setCallback(mqttCallback);
 }
