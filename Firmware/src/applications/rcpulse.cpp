@@ -9,11 +9,10 @@ RcPulseTransceiver::RcPulseTransceiver():
         pulseLen(1),
         txMode(TX_IDLE) {
     //rfm69->setFreq(868350000UL);
-    rfm69->setFreq(433920000UL);
 
     Rfm69::Rfm69Config cfg[] = {
         {Rfm69::RegRxBw, 2<<5 | Rfm69::RXBWASK_250KHZ},
-        {Rfm69::RegSyncConfig, 1<<6}, 
+        {Rfm69::RegSyncConfig, 1<<6}, // no sync, FifoFillCondition set
         {Rfm69::RegRssiThresh, 180}, // /-0.5 dBm
         {Rfm69::RegDataModul, 1<<3}, // OOK
         {Rfm69::RegOokPeak, 1<<6 | 3<<0}, // peak threshold, increment every 8 chips
@@ -23,9 +22,9 @@ RcPulseTransceiver::RcPulseTransceiver():
     };
 
     rfm69->writeConfig(cfg, sizeof(cfg) / sizeof(cfg[0]));
+    rfm69->setFreq(433920000UL);
     rfm69->setBitrate(BITRATE);
     rfm69->setTxPower(13);
-
     rfm69->startReceive(0);
 }
 

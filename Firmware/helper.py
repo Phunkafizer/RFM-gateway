@@ -1,6 +1,8 @@
 import shutil
 import gzip
 import os
+import time
+import webbrowser
 Import("env")
 
 def copy_html(source, target, env):
@@ -17,5 +19,18 @@ def post_build(source, target, env):
     print("build: " + env["BUILD_DIR"])
 
 
+
+def after_upload(source, target, env):
+    #upload_port = env.get("UPLOAD_PORT", None)
+    #if upload_port == None:
+    #    env.AutodetectUploadPort()
+    #    upload_port = env.get("UPLOAD_PORT", "none")
+
+    time.sleep(3)
+    os.system('cmd /c netsh wlan connect name = "RFM-Gateway"')
+    time.sleep(5)
+    webbrowser.open('http://4.3.2.1')
+
 env.AddPreAction("$BUILD_DIR/src/main.cpp.o", copy_html)
 env.AddPostAction("buildprog", post_build)
+env.AddPostAction("upload", after_upload)

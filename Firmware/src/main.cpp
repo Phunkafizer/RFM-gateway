@@ -27,11 +27,12 @@ enum FreqBand : uint8_t {
     FREQ_BAND_915 = 3
 };
 
+
 static const char FILE_RADIO[] PROGMEM = "radio.json";
 static const char FILE_CONFIG[] PROGMEM = "config.json";
 static const char APP_JSON[] PROGMEM = "application/json";
 static const char HOSTNAME[] PROGMEM = "rfm-gateway";
-static const char AP_NAME[] PROGMEM = "RFM-gateway";
+static const char STR_AP_NAME[] PROGMEM = AP_NAME;
 static const char AP_PASS[] PROGMEM = "12345678";
 static const IPAddress apAddress(4, 3, 2, 1);
 static const IPAddress apSubnet(255, 255, 255, 0);
@@ -124,7 +125,7 @@ void setConfig(const JsonObject &obj) {
         mqtt.setBufferSize(1024);
     }
 
-    if (obj.containsKey(F("application"))) { 
+    if (obj.containsKey(F("application"))) {
         if (radioapp != nullptr) {
             delete radioapp;
             radioapp = nullptr;
@@ -176,6 +177,9 @@ void wiFiEvent(WiFiEvent_t event) {
     if (event == 7)
         return;
 
+    SDBG("wiFiEvent ");
+    SDBGLN((int) event);
+
     if (event == WIFI_EVENT_STAMODE_GOT_IP) {
         //WiFi.setHostname(FPSTR(HOSTNAME)->c_str());
     }
@@ -202,15 +206,10 @@ void setup() {
     ledblink.attach(0.1, ledTickcb);
 
     bool apMode = false;
+    #ifdef DEBUG
+        apMode = true;
+    #endif
     LittleFS.begin();
-
-    File f = LittleFS.open(FPSTR(FILE_CONFIG), "r");
-    if (f) {
-        JsonDocument cfg;
-        if (deserializeJson(cfg, f) == DeserializationError::Ok)
-            setConfig(cfg.as<JsonObject>());
-        f.close();
-    }
 
     while (analogRead(A0) < 512) {
         yield();
@@ -232,11 +231,11 @@ void setup() {
         }
     }
 
-    SPI.begin();
-    Serial.begin(76800);
     WiFi.begin();
     MDNS.begin(FPSTR(HOSTNAME));
-
+    Serial.begin(76800);
+    SPI.begin();
+    
     if (!loadRadioSetup())
         apMode = true;
 
@@ -244,10 +243,18 @@ void setup() {
         leddata = 0xA000;
         WiFi.persistent(false);
         WiFi.softAPConfig(apAddress, apAddress, apSubnet);
-        WiFi.softAP(FPSTR(AP_NAME), FPSTR(AP_PASS));
+        WiFi.softAP(FPSTR(STR_AP_NAME), FPSTR(AP_PASS));
         WiFi.mode(WIFI_AP_STA);
         dnsServer.start(DNS_PORT, "*", apAddress);
         dnsServer.processNextRequest();
+    }
+
+    File f = LittleFS.open(FPSTR(FILE_CONFIG), "r");
+    if (f) {
+        JsonDocument cfg;
+        if (deserializeJson(cfg, f) == DeserializationError::Ok)
+            setConfig(cfg.as<JsonObject>());
+        f.close();
     }
     
     websrv.begin();
@@ -294,8 +301,6 @@ void setup() {
 
             String ssid = request->arg(F("ssid"));
             String pass = request->arg(F("pass"));
-            Serial.print(ssid);
-            Serial.println(pass);
 
             WiFi.disconnect();
             WiFi.persistent(true);
@@ -387,7 +392,6 @@ void setup() {
             request->send(400);
         }
         confBuf.clear();
-
     });
 
     websrv.on("/txtest", HTTP_POST, [](AsyncWebServerRequest *request) {}, [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {}, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
@@ -395,7 +399,7 @@ void setup() {
 
         JsonDocument doc;
         deserializeJson(doc, (char*) data, len);
-        
+
         if (rfm69 != nullptr) {
             delete rfm69;
             rfm69 = nullptr;
@@ -451,8 +455,14 @@ void setup() {
         }
     );
 
+    websrv.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(200);
+        rebootFlag = true;
+    });
+
     websrv.onNotFound([](AsyncWebServerRequest *request) {
-        request->redirect(F("/"));
+        request->send(404);
+        //request->redirect(F("/"));
     });
 
     mqtt.setCallback(mqttCallback);

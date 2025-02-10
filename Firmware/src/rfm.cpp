@@ -39,7 +39,6 @@ void RfmBase::readFifo(uint8_t *buf, const size_t size) {
     SPI.transfer(0x00); // FIFO reg
     for (size_t i=0; i<size; i++)
         *buf++ = SPI.transfer(0x00);
-
     digitalWrite(pinSS, HIGH);
 }
 
@@ -85,12 +84,10 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
     RfmBase::begin(pinSS);
     highPower = isHighPower;
     
-    setMode(MODE_SLEEP);
-
     const uint16_t deviation = 9900 / (32E06 / (1UL<<19));
 
     const Rfm69Config cfg[] = {
-        {RegOpMode, MODE_STDBY<<2}, // standby
+        {RegOpMode,         MODE_STDBY<<2}, // standby
         {RegFdevMsb,        deviation >> 8},
         {RegFdevLsb,        deviation & 0xFF},
         {RegFrfMsb,         0xe4},
@@ -112,7 +109,6 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
         {RegTestAfc,        0}, //x 488 Hz offset
         {RegTestLna,        0x2D} // high sensitive mode
     };
-
     writeConfig(cfg, sizeof(cfg)/sizeof(cfg[0]));
     setMode(MODE_FS);
 }
@@ -179,10 +175,16 @@ void Rfm69::setMode(const Mode mode) {
             writeReg(RegTestPa2, 0x70); // normal mode
         }
     }
+
+    //if (mode == MODE_FS)
+        //writeRegBuf(RegFrfMsb, fword, sizeof(fword));
+
     writeReg(RegOpMode, mode << 2);
     this->mode = mode;
 
-    while (true) {
+    int cnt = 0;
+    while (cnt < 10) {
+        cnt++;
         auto if1 = readReg(RegIrqFlags1);
         if ((if1 & 1<<7) != 0)
             break;
@@ -190,7 +192,7 @@ void Rfm69::setMode(const Mode mode) {
 }
 
 void Rfm69::stop() {
-    setMode(MODE_STDBY);
+    setMode(MODE_FS);
 }
 
 void Rfm69::setSync(const uint8_t *sync, const int syncsize) {
@@ -280,7 +282,7 @@ void Rfm69::writeFifo(const uint8_t *buf, uint8_t size) {
 
 void Rfm69::txTest(const uint32_t freq_hz, const int16_t f_corr, const int8_t pwr, const uint16_t baud) {
     setMode(MODE_FS);
-    writeReg16(RegPreambleMsb, 15000);
+    writeReg16(RegPreambleMsb, 10<<8);
     this->f_corr = f_corr;
     setFreq(freq_hz);
     setTxPower(pwr);

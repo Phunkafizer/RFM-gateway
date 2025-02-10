@@ -1,0 +1,134 @@
+import json
+import requests
+import msvcrt
+from tkinter import *
+from tkinter import ttk
+
+def testrfm():
+    f_corr = 60
+    rfmType = 0 # 0=CW, 1=HCW
+    freqBand = 1 # 0=300MHz, 1=433MHz, 2=868 MHz, 3=915 MHz
+    print("t: txtest, +: inc f_corr, -: dec f_corr, 0: RFM69CW, 1: RFM69HCW")
+    while (True):
+        ch = msvcrt.getch()
+
+        if ch == b't':
+            if freqBand == 1:
+                freq = 433900000
+            elif freqBand == 2:
+                freq = 868300000
+
+            data = {
+                "rfmType": rfmType,
+                "freq": freq,
+                "fCorr": f_corr,
+                "pwr": 3,
+                "baud": 12000
+            }
+            s = json.dumps(data)
+            print("Send TX test:", s)
+            r = requests.post('http://4.3.2.1/txtest', data=s)
+
+        elif ch == b'+':
+            f_corr += 1
+        elif ch == b'-':
+            f_corr -= 1
+        elif ch == b'0':
+            rfmtype = 0
+        elif ch == b'1':
+            rfmtype = 1
+
+        elif ch == b'q':
+            requests.get('http://4.3.2.1/send/intertechno/25221242/4/on')
+
+        elif ch == b'w':
+            requests.get('http://4.3.2.1/send/intertechno/25221242/4/off')
+
+        elif ch == b's':
+            data = {
+                "radio": {
+                    "rfmType": rfmType,
+                    "freqBand": freqBand,
+                    "fCorr": f_corr
+                }
+            }
+            s = json.dumps(data)
+            print("Send config:", s)
+            r = requests.post('http://4.3.2.1/config', data=s)
+            
+        else:
+            print("??:", ch)
+
+
+class RFMTestApp:
+    def __init__(self):
+        self.ip = '4.3.2.1'
+        self.root = Tk()
+        self.root.wm_title = 'RFM-Gateway test'
+        self.root.geometry('640x320')
+
+        self.rfmtype = ttk.Combobox(self.root)
+        self.rfmtype['values'] = ('RFM69CW', 'RFM69HCW')
+        self.rfmtype.current(0)
+        self.rfmtype.pack()
+
+        self.freqband = ttk.Combobox(self.root)
+        self.freqband['values'] = ('315 MHz', '433 MHz', '868 MHz', '915 MHz')
+        self.freqband.current(1)
+        self.freqband.pack()
+
+        self.fcorr = Scale(self.root, from_=-120, to=120, orient=HORIZONTAL, length=460)
+        self.fcorr.set(70)
+        self.fcorr.pack()
+
+        self.txtestbtn = ttk.Button(self.root, text="TX test", padding=20, command=self.txtest)
+        self.txtestbtn.pack()
+
+        self.savebtn = ttk.Button(self.root, text="save radio setup", padding=20, command=self.saveradiosetup)
+        self.savebtn.pack()
+
+        self.onbutton = ttk.Button(self.root, text="ON", command=self.sendon)
+        self.onbutton.pack()
+
+        self.offbutton = ttk.Button(self.root, text="OFF", command=self.sendoff)
+        self.offbutton.pack()
+
+        self.root.mainloop()
+
+    def txtest(self):
+        if self.freqband.current() == 1:
+            freq = 433920000
+        elif self.freqband.current() == 2:
+            freq = 868300000
+
+        data = {
+            "rfmType": self.rfmtype.current(),
+            "freq": freq,
+            "fCorr": self.fcorr.get(),
+            "pwr": 3,
+            "baud": 20000
+        }
+        s = json.dumps(data)
+        print("Send TX test:", s)
+        r = requests.post('http://4.3.2.1/txtest', data=s)
+
+    def sendon(self):
+        requests.get('http://' + self.ip + '/send/intertechno/25221242/4/on')
+
+    def sendoff(self):
+        requests.get('http://' + self.ip + '/send/intertechno/25221242/4/off')
+    
+    def saveradiosetup(self):
+        data = {
+            "radio": {
+                "rfmType": self.rfmtype.current(),
+                "freqBand": self.freqband.current(),
+                "fCorr": self.fcorr.get()
+            }
+        }
+        s = json.dumps(data)
+        print("Send config:", s)
+        r = requests.post('http://' + self.ip + '/config', data=s)
+
+if __name__ == "__main__":
+    app = RFMTestApp()

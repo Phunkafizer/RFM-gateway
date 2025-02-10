@@ -240,22 +240,22 @@
                 <div>
                     <h3>radio module type</h3>
                     <select id="selradiotype">
-                        <option value="0">RFM69CW-315S2</option>
-                        <option value="1">RFM69CW-433S2</option>
-                        <option value="2">RFM69CW-868S2</option>
-                        <option value="3">RFM69CW-915S2</option>
-                        <option value="100">RFM69HCW-315S2</option>
-                        <option value="101">RFM69HCW-433S2</option>
-                        <option value="102">RFM69HCW-868S2</option>
-                        <option value="103">RFM69HCW-915S2</option>
-                        <option value="202">RFM95W-868S2</option>
-                        <option value="203">RFM95W-915S2</option>
-                        <option value="300">RFM96W-315S2</option>
-                        <option value="301">RFM96W-433S2</option>
-                        <option value="402">RFM97W-868S2</option>
-                        <option value="403">RFM97W-915S2</option>
-                        <option value="500">RFM98W-315S2</option>
-                        <option value="501">RFM98W-433S2</option>
+                        <option value="0000">RFM69CW-315S2</option>
+                        <option value="0001">RFM69CW-433S2</option>
+                        <option value="0002">RFM69CW-868S2</option>
+                        <option value="0003">RFM69CW-915S2</option>
+                        <option value="0100">RFM69HCW-315S2</option>
+                        <option value="0101">RFM69HCW-433S2</option>
+                        <option value="0102">RFM69HCW-868S2</option>
+                        <option value="0103">RFM69HCW-915S2</option>
+                        <option value="0202">RFM95W-868S2</option>
+                        <option value="0203">RFM95W-915S2</option>
+                        <option value="0300">RFM96W-315S2</option>
+                        <option value="0301">RFM96W-433S2</option>
+                        <option value="0402">RFM97W-868S2</option>
+                        <option value="0403">RFM97W-915S2</option>
+                        <option value="0500">RFM98W-315S2</option>
+                        <option value="0501">RFM98W-433S2</option>
                     </select>
                 </div>
                 <div>
@@ -542,7 +542,7 @@
                     }
 
                     for (let opt of __("#selradiotype option")) {
-                        if (opt.getAttribute("value") == model.toString(16)) {
+                        if (parseInt("0x" + opt.getAttribute("value"), 16) == model) {
                             _("#radio_model").innerText = opt.innerText;
                             break;
                         }
@@ -737,6 +737,21 @@
                 xhrconfig.send(JSON.stringify(param));
             }
 
+            _("#selradiotype").onchange = (ev) => {
+                let freqidx = parseInt(_("#selradiotype").value, 16) & 0xFF;
+                switch (freqidx) {
+                case 1:
+                    _("#inpfreq").value = "433920000";
+                    break;
+                case 2:
+                    _("#inpfreq").value = "868300000";
+                    break;
+                default:
+                    _("#inpfreq").value = "";
+                    break;
+                }
+            }
+
             _("#btntxtest").onclick = (ev) => {
                 const xhrtxtest = new XMLHttpRequest();
                 let param = {
@@ -824,6 +839,12 @@
             _("#txPwrSlider").oninput = (ev) => {
                 _("#txPwr").innerText = ev.target.value + " dBm";
             }
+
+            _("#rebootbtn").onclick = (ev) => {
+                const xhrreboot = new XMLHttpRequest();
+                xhrreboot.open("GET", "/reboot");
+                xhrreboot.send();
+            };
 
             getConfig();
             getStatus();
