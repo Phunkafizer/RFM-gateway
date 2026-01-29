@@ -4,12 +4,14 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+#include <Ticker.h>
 #include "main.h"
 #include "applications/868gw.h"
 #include "applications/fs20.h"
 #include "applications/rc433.h"
 #include "html.h"
-#include <Ticker.h>
+#include "global.h"
+#include "HADiscLocal.h"
 
 enum RfmType : uint8_t {
     RFM_TYPE_RFM69xx = 0,
@@ -101,7 +103,7 @@ bool loadRadioSetup() {
 }
 
 void setConfig(const JsonObject &obj) {
-    if (obj.containsKey(F("mqtt"))) {
+    if (!obj[F("mqtt")].isNull()) {
         const JsonObject &jMqtt = obj[F("mqtt")];
         if (mqtt.connected())
             mqtt.disconnect();
@@ -116,7 +118,7 @@ void setConfig(const JsonObject &obj) {
         mqttHost = jMqtt[F("host")].as<String>();
         mqttUser = jMqtt[F("user")].as<String>();
         mqttPass = jMqtt[F("pass")].as<String>();
-        if (jMqtt.containsKey(F("basetopic")))
+        if (!jMqtt[F("basetopic")].isNull())
             baseTopic = jMqtt[F("basetopic")].as<String>();
         if (baseTopic.isEmpty())
             baseTopic = F("home/rfm-gateway");
@@ -125,7 +127,7 @@ void setConfig(const JsonObject &obj) {
         mqtt.setBufferSize(1024);
     }
 
-    if (obj.containsKey(F("application"))) {
+    if (!obj[F("application")].isNull()) {
         if (radioapp != nullptr) {
             delete radioapp;
             radioapp = nullptr;
@@ -151,12 +153,19 @@ void setConfig(const JsonObject &obj) {
     }
 
     if (rfm69 != nullptr) {
-        int8_t pwr = obj[F("txPwr")] | 13;
+        const int8_t pwr = obj[F("txPwr")] | 13;
         rfm69->setTxPower(pwr);
+        const int8_t rxThresh = obj[F("rxThresh")] | -70;
+        rfm69->setRxThresh(rxThresh);
     }
 }
 
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    (void) server;
+    (void) client;
+    (void) arg;
+    (void) data;
+    (void) len;
     switch (type) {
         case WS_EVT_CONNECT:
             //Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
@@ -270,7 +279,7 @@ void setup() {
         request->send_P(200, F("text/html"), html);
     });
 
-    websrv.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
+    websrv.on(PSTR("/scan"), HTTP_GET, [](AsyncWebServerRequest *request) {
         JsonDocument doc;
         JsonObject jobj = doc.to<JsonObject>();
 
@@ -295,7 +304,7 @@ void setup() {
         request->send(response);
     });
 
-    websrv.on("/setwifi", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    websrv.on(PSTR("/setwifi"), HTTP_POST, [] (AsyncWebServerRequest *request) {
         if (request->hasArg(F("ssid")) && request->hasArg(F("pass"))) {
             request->send(200);
 
@@ -312,7 +321,7 @@ void setup() {
             request->send(400); // bad request
     });
 
-    websrv.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    websrv.on(PSTR("/status"), HTTP_GET, [](AsyncWebServerRequest *request) {
         JsonDocument doc;
 
         JsonObject jWifi = doc[F("WiFi")].to<JsonObject>();
@@ -334,7 +343,7 @@ void setup() {
         serializeJson(doc, *response);
         request->send(response); });
 
-    websrv.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+    websrv.on(PSTR("/config"), HTTP_GET, [](AsyncWebServerRequest *request) {
         JsonDocument doc;
         doc.to<JsonObject>();
 
@@ -359,10 +368,17 @@ void setup() {
         request->send(response); 
     });
 
-    websrv.on("/config", HTTP_POST, 
-            [] (AsyncWebServerRequest *request) {}, 
-            [] (AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {}, 
-            [] (AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+    websrv.on(PSTR("/config"), HTTP_POST, 
+        [] (AsyncWebServerRequest *request) {(void) request;}, 
+        [] (AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {
+            (void) request;
+            (void) filename;
+            (void) index;
+            (void) data;
+            (void) len;
+            (void) final;
+        }, 
+        [] (AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
         static String confBuf;
         if (!index)
             confBuf.clear();
@@ -373,14 +389,14 @@ void setup() {
 
         JsonDocument doc;
         if (deserializeJson(doc, confBuf) == DeserializationError::Ok) {
-            if (doc.containsKey(F("radio"))) {
+            if (!doc[F("radio")].isNull()) {
                 File f = LittleFS.open(FPSTR(FILE_RADIO), "w");
                 serializeJson(doc[F("radio")], f);
                 f.close();
                 loadRadioSetup();
             }
 
-            if (doc.containsKey(F("config"))) {
+            if (!doc[F("config")].isNull()) {
                 File f = LittleFS.open(FPSTR(FILE_CONFIG), "w");
                 serializeJson(doc[F("config")], f);
                 f.close();
@@ -394,7 +410,20 @@ void setup() {
         confBuf.clear();
     });
 
-    websrv.on("/txtest", HTTP_POST, [](AsyncWebServerRequest *request) {}, [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {}, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+    websrv.on(PSTR("/txtest"), HTTP_POST, [](AsyncWebServerRequest *request) {
+            (void) request;
+        }, 
+        [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {
+            (void) request;
+            (void) filename;
+            (void) index;
+            (void) data;
+            (void) len;
+            (void) final;
+        }, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            (void) index;
+            (void) total;
+
         request->send(200);
 
         JsonDocument doc;
@@ -429,7 +458,39 @@ void setup() {
         }
     });
 
-    websrv.on("/update", HTTP_POST, 
+    websrv.on(PSTR("/senddisc"), HTTP_POST, 
+        [] (AsyncWebServerRequest *request) { // onRequest handler
+            (void) request;
+        },
+        [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) {
+            // onUpload handler
+            (void) request;
+            (void) filename;
+            (void) index;
+            (void) data;
+            (void) len;
+            (void) final;
+        },
+        [] (AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+             // onBody handler
+            (void) request;
+            (void) data;
+            (void) len;
+
+            if (index + len == total) {
+                Serial.println((char*) data);
+
+                JsonDocument doc;
+                if ( (deserializeJson(doc, (char*) data, len) == DeserializationError::Ok) &&
+                     (radioapp != nullptr) &&
+                     (radioapp->sendDiscovery(doc)) )
+                        request->send(200);
+                else
+                    request->send(400);
+            }
+    });
+
+    websrv.on(PSTR("/update"), HTTP_POST, 
         [] (AsyncWebServerRequest *request) { // onRequest handler
             int httpRes;
 
@@ -444,6 +505,8 @@ void setup() {
             request->send(response);
         },
         [] (AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final) { // onUpdate handler
+            (void) request;
+            (void) filename;
             if (!index) {
                 Update.runAsync(true);
                 Update.begin(request->contentLength(), U_FLASH);
@@ -455,7 +518,7 @@ void setup() {
         }
     );
 
-    websrv.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request) {
+    websrv.on(PSTR("/reboot"), HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200);
         rebootFlag = true;
     });
@@ -466,6 +529,7 @@ void setup() {
     });
 
     mqtt.setCallback(mqttCallback);
+    haDisc.begin();
 }
 
 
@@ -475,11 +539,13 @@ void loop() {
     if (WiFi.localIP().isSet()) {
         if (!mqttHost.isEmpty() && !mqtt.connected()) {
             String id = WiFi.macAddress();
+
             id.remove(0, 9);
             int idx;
             while ( (idx = id.indexOf(':')) >= 0)
                 id.remove(idx, 1);
-            id = FPSTR(HOSTNAME) + id;
+
+            id = String(FPSTR(HOSTNAME)) + id;
 
             String statusTopic = baseTopic + F("/status");
             bool con = mqtt.connect(

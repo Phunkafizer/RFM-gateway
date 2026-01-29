@@ -3,6 +3,7 @@ import requests
 import msvcrt
 from tkinter import *
 from tkinter import ttk
+from functools import partial
 
 def testrfm():
     f_corr = 60
@@ -65,7 +66,7 @@ class RFMTestApp:
         self.ip = '4.3.2.1'
         self.root = Tk()
         self.root.wm_title = 'RFM-Gateway test'
-        self.root.geometry('640x320')
+        self.root.geometry('640x720')
 
         self.rfmtype = ttk.Combobox(self.root)
         self.rfmtype['values'] = ('RFM69CW', 'RFM69HCW')
@@ -77,7 +78,7 @@ class RFMTestApp:
         self.freqband.current(1)
         self.freqband.pack()
 
-        self.fcorr = Scale(self.root, from_=-120, to=120, orient=HORIZONTAL, length=460)
+        self.fcorr = Scale(self.root, from_=-300, to=300, orient=HORIZONTAL, length=460)
         self.fcorr.set(70)
         self.fcorr.pack()
 
@@ -92,6 +93,57 @@ class RFMTestApp:
 
         self.offbutton = ttk.Button(self.root, text="OFF", command=self.sendoff)
         self.offbutton.pack()
+
+        btns = [
+            {
+                "Büro 1 on": 'intertechno/25221242/1/on',
+                "Büro 1 off": 'intertechno/25221242/1/off',
+
+                "Büro 2 on": 'intertechno/25221242/2/on',
+                "Büro 2 off": 'intertechno/25221242/2/off',
+
+                "Büro 3 on": 'intertechno/25221242/3/on',
+                "Büro 3 off": 'intertechno/25221242/3/off',
+            },
+            {
+                "Tris C 3 1 on": 'ittristate/c/3/1/on',
+                "Tris C 3 1 off": 'ittristate/c/3/1/off',
+                "Tris C 3 2 on": 'ittristate/c/3/2/on',
+                "Tris C 3 2 off": 'ittristate/c/3/2/off',
+                "Tris C 3 3 on": 'ittristate/c/3/3/on',
+                "Tris C 3 3 off": 'ittristate/c/3/3/off',
+                "Tris C 3 4 on": 'ittristate/c/3/4/on',
+                "Tris C 3 4 off": 'ittristate/c/3/4/off',
+            },
+            {
+                "IT32 1 on": 'intertechno/123456/1/on',
+                "IT32 1 off": 'intertechno/123456/1/off',
+                "IT32 2 on": 'intertechno/123456/2/on',
+                "IT32 2 off": 'intertechno/123456/2/off',
+                "IT32 3 on": 'intertechno/123456/3/on',
+                "IT32 3 off": 'intertechno/123456/3/off',
+                "IT32 4 on": 'intertechno/123456/4/on',
+                "IT32 4 off": 'intertechno/123456/4/off',
+            },
+            {
+                "Emylo A": 'emylo/12345/A',
+                "Emylo B": 'emylo/12345/B',
+                "Emylo C": 'emylo/12345/C',
+                "Emylo D": 'emylo/12345/D'
+            }
+        ]
+
+        for btnrow in btns:
+            buttonframe = Frame(self.root)
+            col = 0
+    
+            for key, value in btnrow.items():
+                btn = ttk.Button(buttonframe, text=key, command=partial(self.send, value))
+                btn.grid(row=0, column=col)
+                col += 1
+            
+            buttonframe.pack()
+
 
         self.root.mainloop()
 
@@ -129,6 +181,12 @@ class RFMTestApp:
         s = json.dumps(data)
         print("Send config:", s)
         r = requests.post('http://' + self.ip + '/config', data=s)
+
+    def send(self, param):
+        url = F"http://{self.ip}/send/{param}"
+        print(url)
+        requests.get(url)
+
 
 if __name__ == "__main__":
     app = RFMTestApp()

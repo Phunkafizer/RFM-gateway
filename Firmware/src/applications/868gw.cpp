@@ -29,6 +29,7 @@ RadioApplication *radioapp = nullptr;
 class LaCrosseDecoder {
 public:
     static bool decode(const uint8_t *data, const size_t len, const int8_t rssi) {
+        (void) rssi;
         if (len < 5)
             return false;
 
@@ -102,6 +103,7 @@ public:
 class EC3KDecoder {
 public:
     static bool decode(uint8_t *buf, const size_t len, const int8_t rssi) {
+        (void) rssi;
         const uint8_t PAYLOADLEN = 41;
 
         if (len < (PAYLOADLEN + 2)) // payload len + 2x HDLC flag
@@ -418,7 +420,6 @@ Gw868::Gw868(const JsonObject &conf):
         {Rfm69::RegRxBw, 2<<5 | Rfm69::RXBWFSK_250KHZ},
         {Rfm69::RegRssiThresh, 195}, // /-0.5 dBm
         {Rfm69::RegDataModul, 0<<3}, // packet mode, FSK
-        
         {Rfm69::RegPacketConfig1, 0x00}, // fixed or unlimited length, no whitening, no crc
     };
     rfm69->writeConfig(cfg, sizeof(cfg) / sizeof(cfg[0]));
@@ -501,4 +502,8 @@ void Gw868::loop() {
 
         rfm69->startReceive(currentRxLen);
     }
+}
+
+bool Gw868::sendDiscovery(JsonDocument doc) {
+    return false;
 }

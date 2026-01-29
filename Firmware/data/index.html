@@ -387,6 +387,12 @@
                     <div><span id="txPwr">13 dBm</span></div>
                 </div>
 
+                <div>
+                    <h3>RX threshold</h3>
+                    <input type="range" min="-90" max="-40" value="-70" class="slider" id="rxThreshSlider">
+                    <div><span id="rxThresh">-70 dBm</span></div>
+                </div>
+
                 <div class="appsettings">
                     <h3>Codecs</h3>
                     <div class="row">
@@ -461,7 +467,7 @@
         </div>
 
         <div id="footer">
-            <span>2024 <a href="https://www.seegel-systeme.de">www.seegel-systeme.de</a></span>
+            <span>2026 <a href="https://www.seegel-systeme.de">www.seegel-systeme.de</a></span>
         </div>
     </div>
 
@@ -592,6 +598,9 @@
 
                     _("#txPwrSlider").value = parseInt(config["txPwr"]);
                     _("#txPwrSlider").dispatchEvent(new CustomEvent('input'));
+
+                    _("#rxThreshSlider").value = parseInt(config["rxThresh"]);
+                    _("#rxThreshSlider").dispatchEvent(new CustomEvent('input'));
                 }
             }
             xhr.open("GET", "config");
@@ -655,6 +664,24 @@
             xhr.send();
         }
 
+        function sendDiscovery(ele) {
+            const discoveryData = JSON.parse(ele.dataset.discovery);
+            const xhr = new XMLHttpRequest();
+            xhr.onload = (ev) => {
+                if (ev.target.status === 200) {
+                    alert("Discovery sent successfully!");
+                } else {
+                    alert("Error sending discovery!");
+                }
+            };
+            xhr.onerror = (ev) => {
+                alert("Request failed!");
+            };
+            xhr.open("POST", "/senddisc");
+            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xhr.send(JSON.stringify(discoveryData));
+        }
+
         window.onload = (ev) => {
             for (let ele of __("button.navi-item")) {
                 ele.onclick = (ev) => {
@@ -705,7 +732,8 @@
                             "basetopic": _("#mqtt_basetopic").value
                         },
                         "application": iApp,
-                        "txPwr": parseInt(_("#txPwrSlider").value)
+                        "txPwr": parseInt(_("#txPwrSlider").value),
+                        "rxThresh": parseInt(_("#rxThreshSlider").value)
                     }
                 };
 
@@ -838,6 +866,10 @@
 
             _("#txPwrSlider").oninput = (ev) => {
                 _("#txPwr").innerText = ev.target.value + " dBm";
+            }
+
+            _("#rxThreshSlider").oninput = (ev) => {
+                _("#rxThresh").innerText = ev.target.value + " dBm";
             }
 
             _("#rebootbtn").onclick = (ev) => {

@@ -1,19 +1,18 @@
 #include "rcpulse.h"
 
 const uint8_t SEPERATION_LEN = 120;
+const uint8_t MIN_NUM_PULSES = 48;
 
-RcPulseTransceiver::RcPulseTransceiver():
+RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq):
         bufPos(0),
         bufLen(0),
         lastBit(false),
         pulseLen(1),
         txMode(TX_IDLE) {
-    //rfm69->setFreq(868350000UL);
-
     Rfm69::Rfm69Config cfg[] = {
         {Rfm69::RegRxBw, 2<<5 | Rfm69::RXBWASK_250KHZ},
         {Rfm69::RegSyncConfig, 1<<6}, // no sync, FifoFillCondition set
-        {Rfm69::RegRssiThresh, 180}, // /-0.5 dBm
+        {Rfm69::RegRssiThresh, 160}, // /-0.5 dBm
         {Rfm69::RegDataModul, 1<<3}, // OOK
         {Rfm69::RegOokPeak, 1<<6 | 3<<0}, // peak threshold, increment every 8 chips
         {Rfm69::RegPreambleMsb, 0},
@@ -22,7 +21,7 @@ RcPulseTransceiver::RcPulseTransceiver():
     };
 
     rfm69->writeConfig(cfg, sizeof(cfg) / sizeof(cfg[0]));
-    rfm69->setFreq(433920000UL);
+    rfm69->setFreq(freq);
     rfm69->setBitrate(BITRATE);
     rfm69->setTxPower(13);
     rfm69->startReceive(0);
@@ -44,7 +43,7 @@ void RcPulseTransceiver::loop() {
                     switch (txMode) {
                     case TX_SYMBOLS:
                         if (bufPos == bufLen) {
-                            pulseLen = 5;
+                            pulseLen = footer[0];
                             txMode = TX_FOOTER1;
                             break;
                         }
@@ -53,7 +52,7 @@ void RcPulseTransceiver::loop() {
                         break;
 
                     case TX_FOOTER1:
-                        pulseLen = 150;
+                        pulseLen = footer[1];
                         txMode = TX_FOOTER2;
                         break;
 
@@ -81,7 +80,11 @@ void RcPulseTransceiver::loop() {
         }
         return;
     }
-
+    if (txQue.size() > 0) {
+        onMqttMessage(txQue[0].path, txQue[0].payload);
+        txQue.erase(txQue.begin());
+        return;
+    }
 
     uint8_t buf[32];
     uint8_t len = rfm69->getPayload(buf, sizeof(buf));
@@ -104,19 +107,29 @@ void RcPulseTransceiver::loop() {
             }
             else {
                 pulseLen++;
-                if ((pulseLen > SEPERATION_LEN) && (bufLen > 0) ) {
+                if (pulseLen > SEPERATION_LEN) {
                     pulseBuf[bufPos] = SEPERATION_LEN;
 
-                    // rotate ringbuffer so that seperation pulse is located at the end (bufLen)
-                    uint8_t rot = (bufPos + sizeof(pulseBuf) - bufLen + 1) % sizeof(pulseBuf);
-                    rotateBuf(rot);
+                    if (bufLen >= MIN_NUM_PULSES) {
+                        // rotate ringbuffer so that seperation pulse is located at the end (bufLen)
+                        uint8_t rot = (bufPos + sizeof(pulseBuf) - bufLen + 1) % sizeof(pulseBuf);
+                        rotateBuf(rot);
 
-                    if (RcCodec::decode(pulseBuf, bufLen) == 0) {
-                        // no matching decoder found
-                        String l = F("RAW: ");
-                        for (uint8_t i=0; i<bufLen; i++)
-                            l += String(pulseBuf[i]) + ' ';
-                        ws.textAll(l);
+                        uint8_t cnt1 = 0;
+                        for (uint8_t i=0; i<bufLen; i++) {
+                            if (pulseBuf[i] == 1)
+                                cnt1++;
+                        }
+
+                        if (cnt1 < 5) {
+                            if (RcCodec::decode(pulseBuf, bufLen) == 0) {
+                                // no matching decoder found
+                                String l = F("RAW: ");
+                                for (uint8_t i=0; i<bufLen; i++)
+                                    l += String(pulseBuf[i]) + ' ';
+                                ws.textAll(l);
+                            }
+                        }
                     }
 
                     bufLen = 0;
@@ -145,13 +158,18 @@ void RcPulseTransceiver::rotateBuf(uint8_t pos) {
 }
 
 bool RcPulseTransceiver::canHandle(AsyncWebServerRequest *request __attribute__((unused))) {
-    if (request->url().startsWith(F("/send")))
+    if (request->url().startsWith(F("/send/")))
         return true;
+
     return false;
 }
 
-void RcPulseTransceiver::handleRequest(AsyncWebServerRequest *request __attribute__((unused))) {
+void RcPulseTransceiver::handleRequest(AsyncWebServerRequest *request) {
     if (request->method() == HTTP_GET) {
+        if (txMode != TX_IDLE) {
+            request->send(409, F("text/plain"), F("transmitter busy"));
+            return;
+        }
         String path = request->url().substring(6, -1);
         
         String payload = path;
@@ -198,6 +216,10 @@ void RcPulseTransceiver::handleBody(AsyncWebServerRequest *request __attribute__
 }
 
 void RcPulseTransceiver::onMqttMessage(const String topic, const String payload) {
+    if (txMode != TX_IDLE) {
+        txQue.push_back({topic, payload});
+        return;
+    }
     RcCodec* codec = nullptr;
 
     if (topic.substring(topic.length() - 4, -1).compareTo(F("/set")) == 0) {
@@ -213,10 +235,15 @@ void RcPulseTransceiver::onMqttMessage(const String topic, const String payload)
         sendPulseBuf(*codec);
 }
 
+bool RcPulseTransceiver::sendDiscovery(JsonDocument doc) {
+    return RcCodec::sendDiscovery(doc);
+}
+
 void RcPulseTransceiver::sendPulseBuf(RcCodec& codec) {
     txMode = TX_SYMBOLS;
     lastBit = true;
     txRepeats = codec.getTxRepeats();
+    codec.getFooter(footer);
     bufPos = 0;
     pulseLen = pulseBuf[bufPos++];
     rfm69->send(nullptr, 0, false); // start transmitting packet with unlimited length

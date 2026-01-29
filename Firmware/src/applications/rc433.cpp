@@ -1,7 +1,10 @@
 #include "rc433.h"
 #include "rccodecs.h"
 
-Rc433Transceiver::Rc433Transceiver(const JsonObject &conf) {
+Rc433Transceiver::Rc433Transceiver(const JsonObject &conf):
+        RcPulseTransceiver(433920000UL) {
+
+    (void) conf;
     new ITTristate;
     new IT32;
     new PilotaCasa;

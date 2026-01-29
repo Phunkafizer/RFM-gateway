@@ -59,6 +59,7 @@ public:
         RegFrfMsb = 0x07,
         RegFrfMid = 0x08,
         RegFrfLsb = 0x09,
+        RegVersion = 0x10,
         RegAfcCtrl = 0x0B,
         RegPaLevel = 0x11,
         RegOcp = 0x13,
@@ -142,6 +143,7 @@ public:
     void setAesKey(const uint8_t aeskey[16]);
     void enableAes(const bool enable);
     void setTxPower(const int8_t power);
+    void setRxThresh(const int8_t thresh);
     void setFreq(const uint32_t freq_hz);
     void setBitrate(const uint16_t bit_s);
     void setFCorr(const int16_t fcorr);

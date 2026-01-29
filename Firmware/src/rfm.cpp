@@ -1,4 +1,5 @@
 #include "rfm.h"
+#include "global.h"
 
 #define FXOSC 32E6
 #define FSTEP (FXOSC / (1UL<<19))
@@ -90,10 +91,13 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
         {RegOpMode,         MODE_STDBY<<2}, // standby
         {RegFdevMsb,        deviation >> 8},
         {RegFdevLsb,        deviation & 0xFF},
+        {RegBitrateMsb,     0x1a},
+        {RegBitrateLsb,     0x0b},
         {RegFrfMsb,         0xe4},
         {RegFrfMid,         0xc0},
         {RegFrfLsb,         0x00},
-        {RegDataModul,      0}, // Packet mode, FSK
+        {RegDataModul,      0}, // Packet mode, FSK, no shaping
+        {RegPaLevel,        0x9f},     
         {RegPreambleMsb,    0},
         {RegPreambleLsb,    10},
         {RegPacketConfig1,  0<<5}, // fixed length, no data whitening, crc off
@@ -111,6 +115,12 @@ void Rfm69::begin(const uint8_t pinSS, const bool isHighPower) {
     };
     writeConfig(cfg, sizeof(cfg)/sizeof(cfg[0]));
     setMode(MODE_FS);
+
+#ifdef DEBUG
+    uint8_t v = readReg(RegVersion);
+    SDBG("RFM version: ");
+    SDBGLN(v, HEX);
+#endif
 }
 
 void Rfm69::writeConfig(const Rfm69Config cfg[], const uint8_t num) {
@@ -176,11 +186,10 @@ void Rfm69::setMode(const Mode mode) {
         }
     }
 
-    //if (mode == MODE_FS)
-        //writeRegBuf(RegFrfMsb, fword, sizeof(fword));
-
     writeReg(RegOpMode, mode << 2);
     this->mode = mode;
+    SDBG(F("RFM setting mode "));
+    SDBG((int) mode);
 
     int cnt = 0;
     while (cnt < 10) {
@@ -189,6 +198,11 @@ void Rfm69::setMode(const Mode mode) {
         if ((if1 & 1<<7) != 0)
             break;
     }
+
+    if (cnt < 10)
+        SDBGLN(F(" OK"));
+    else
+        SDBGLN(F(" FAILED"));
 }
 
 void Rfm69::stop() {
@@ -247,6 +261,10 @@ void Rfm69::setTxPower(const int8_t power) {
         pwrreg = 0x80 | (power + 18); // PA0
 
     writeReg(RegPaLevel, pwrreg);
+}
+
+void Rfm69::setRxThresh(const int8_t thresh) {
+    writeReg(RegRssiThresh, (uint8_t)(-thresh * 2));
 }
 
 bool Rfm69::isIdle() {

@@ -1,14 +1,30 @@
 #include "rccodecs.h"
 #include "main.h"
+#include "HADiscLocal.h"
 
 const uint16_t BITRATE = 20000;
 const uint16_t PULSEWIDTHUS = 1000000UL / BITRATE; // samplingtime of tranceiver / µS
 
+static const char STR_PROTOCOL[] PROGMEM = "protocol";
 static const char STR_COMMAND[] PROGMEM = "command";
+static const char STR_HOUSE[] PROGMEM = "house";
+static const char STR_ADDRESS[] PROGMEM = "address";
+static const char STR_CHANNEL[] PROGMEM = "channel";
+static const char STR_GROUP[] PROGMEM = "group";
+
+static const char STR_ON[] PROGMEM = "ON";
+static const char STR_OFF[] PROGMEM = "OFF";
+
+static const char STR_ENCODING_ERROR[] PROGMEM ="encoding error!";
+
 
 RcCodec* RcCodec::codecs = nullptr;
 uint8_t RcCodec::symbolBuf[SYMBOLBUFSIZE];
 uint8_t RcCodec::symbolBufLen;
+
+uint8_t RcCodec::CodecParams::getNumSymbols() const {
+    return numSymbols * pulsesPerSymbol;
+}
 
 RcCodec::RcCodec():        
         next(codecs),
@@ -33,6 +49,14 @@ void RcCodec::freeCodecs() {
 bool RcCodec::decode(const uint8_t *pulseBuf, const uint8_t len) {
     bool decoded = false;
     RcCodec *codec = codecs;
+
+    Serial.print("Pulsebuf len ");
+    Serial.print(len);
+    Serial.print(": ");
+    for (int i=0; i<len; i++)
+        Serial.print(String(pulseBuf[i]) + ' ');
+    Serial.println();
+
     while (codec != nullptr) {
         if (codec->decodePulses(pulseBuf, len)) {
             if (codec->lastDecode < (millis() - 500)) {
@@ -55,23 +79,25 @@ uint8_t RcCodec::getTxRepeats() const {
     return params->txRepeats;
 }
 
-/**
- * @brief decodes a pulsebuf using given codec params
- * Decoded symbols are saved in static variable "symbolBuffer"
- * @return number of successfully decoded symbols
- */
-bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
-    if (len < params->numSymbols * params->pulsesPerSymbol + 2) // enough pulses in received buffer?
-        return false;
+void RcCodec::getFooter(uint16_t footer[2]) const {
+    footer[0] = tbToPulses(params->footer[0]);
+    footer[1] = tbToPulses(params->footer[1]);
+}
 
-    const uint8_t *ppb = pulseBuf + len - params->numSymbols * params->pulsesPerSymbol - 2;
-    
+/**
+ * @brief decodes given pulsebuf to symbols
+ * Decoded symbols are saved in static variable "symbolBuffer"
+ * number of decoded symbols is saved in static variable "symbolBufLen"
+ */
+void RcCodec::matchSymbols(const uint8_t *pulseBuf, const uint8_t len) {
     uint16_t timebase = params->timebase;
+    symbolBufLen = 0;
+
     // automatic timebase calculation
     if (params->numSymbolsAutoTimebase > 0) {
         uint16_t sumPulses = 0;
         for (uint8_t i=0; i<params->numSymbolsAutoTimebase * params->pulsesPerSymbol; i++)
-            sumPulses += ppb[i];
+            sumPulses += pulseBuf[i];
 
         //calculate duration of a symbol, we always use 1st symbol in symTable
         uint8_t symDur = 0;
@@ -80,11 +106,14 @@ bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
 
         timebase = (uint32_t) sumPulses * PULSEWIDTHUS / params->numSymbolsAutoTimebase / symDur;
         if ( (timebase < params->timebase_min) || (timebase > params->timebase_max) )
-            return false;
+            return;
+
+        params->timebase = timebase;
     }
 
-    uint8_t *symTabLow = (uint8_t*) malloc(params->numTableSymbols * params->pulsesPerSymbol);
-    uint8_t *symTabHigh = (uint8_t*) malloc(params->numTableSymbols * params->pulsesPerSymbol);
+    const uint8_t SYMTAB_MAX = 32;
+    static uint8_t symTabLow[SYMTAB_MAX];
+    static uint8_t symTabHigh[SYMTAB_MAX];
 
     // calculate matching windows for pulses
 
@@ -108,7 +137,6 @@ bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
     #endif
 
     uint8_t bp = 0;
-    symbolBufLen = 0;
 
     while (bp + params->pulsesPerSymbol <= len) {
         uint8_t s;
@@ -128,8 +156,13 @@ bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
                 const uint8_t ipb = bp + p; // calculate index in pulse buffer
                 if (ipb == 0) // skip very first pulse, it could be distorted by leading noise
                     continue;
-                if ( (ppb[ipb] < symTabLow[ist]) || (ppb[ipb] > symTabHigh[ist]) )
-                    break; //current pulse does not match to symbol to check
+                if ( (pulseBuf[ipb] < symTabLow[ist]) || (pulseBuf[ipb] > symTabHigh[ist]) ) {
+                     //current pulse does not match to symbol to check, try matching next symbol
+                    #ifdef DEBUGRCDECODER
+                    Serial.print("!");
+                    #endif
+                    break;
+                }
             }
 
             #ifdef DEBUGRCDECODER
@@ -143,31 +176,38 @@ bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
             // check for next symbol
         }
 
-        #ifdef DEBUGRCDECODER
-        Serial.println("s " + String(s));
-        #endif
-
         if (s == params->numTableSymbols) {
             //no matching symbol found
             break;
         }
-        else
+        else {
+            #ifdef DEBUGRCDECODER
+            Serial.println("s " + String(s));
+            #endif
             symbolBuf[symbolBufLen++] = s;
+        }
 
         bp += params->pulsesPerSymbol;
     }
-
     #ifdef DEBUGRCDECODER
-    String str;
+    String str = F("Decoded symbols: ");
     for (uint8_t i=0; i<symbolBufLen; i++)
         str += char('0' + symbolBuf[i]);
-    Serial.println("RX Symbols: " + str);
+    Serial.println(str);
     #endif
+}
 
-    free(symTabLow);
-    free(symTabHigh);
+bool RcCodec::decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbols) {
+    const uint8_t ns = (numSymbols == 0) ? params->numSymbols : numSymbols;
+    const uint8_t np = ns * params->pulsesPerSymbol;
 
-    return (params->numSymbols == bp / params->pulsesPerSymbol);
+    if (len < np + 2) // enough pulses in received buffer?
+        return false;
+
+    const uint8_t *buf = pulseBuf + len - np - 2;
+    matchSymbols(buf, np);
+    
+    return (symbolBufLen == ns);
 }
 
 RcCodec* RcCodec::find(const String name) {
@@ -190,52 +230,91 @@ RcCodec* RcCodec::encode(String path, String payload, uint8_t *pulseBuf, uint8_t
         // strip off protocol name
         path = path.substring(path.indexOf('/') + 1, -1);
         if (codec->encodeSymbols(path, payload)) {
+            Serial.print("Encoded symbols: ");
+            for (int i=0; i<symbolBufLen; i++)
+                Serial.print((char) (symbolBuf[i] + '0'));
+            Serial.println();
             pulseBufLen = codec->encodePulses(pulseBuf);
             return codec;
         }
     }
-    
+    ws.textAll(FPSTR(STR_ENCODING_ERROR));
     return nullptr;
 }
 
 RcCodec* RcCodec::encode(const JsonObject& obj, uint8_t *pulseBuf, uint8_t &pulseBufLen) {
-    String name = obj[F("protocol")];
-
-    RcCodec* codec = find(name);
+    RcCodec* codec = find(obj[FPSTR(STR_PROTOCOL)]);
     if (codec != nullptr) {
         if (codec->encodeSymbols(obj)) {
             pulseBufLen = codec->encodePulses(pulseBuf);
             return codec;
         }
     }
-
+    ws.textAll(FPSTR(STR_ENCODING_ERROR));
     return nullptr;
 }
 
+uint16_t RcCodec::tbToPulses(const uint8_t tb) const {
+    return (params->timebase * tb + (PULSEWIDTHUS / 2)) / PULSEWIDTHUS;
+}
+
+/**
+ * @brief encodes pulsebuf from symbols
+ * set symbolBuf and symbolBufLen before calling this function
+ * @return number of pulses in pulsebuf
+ */
 uint8_t RcCodec::encodePulses(uint8_t *pulseBuf) {
     uint8_t result = 0;
     
     for (uint8_t s=0; s<symbolBufLen; s++) {
         for (uint8_t p=0; p<params->pulsesPerSymbol; p++) {
-            uint16_t pulse = (params->symbolTable[symbolBuf[s] * params->pulsesPerSymbol + p] * params->timebase + (PULSEWIDTHUS / 2)) / PULSEWIDTHUS;
+            uint16_t pulse = tbToPulses(params->symbolTable[symbolBuf[s] * params->pulsesPerSymbol + p]);
             pulseBuf[result++] = pulse;
         }
     }
     return result;
 }
 
-
 String RcCodec::getPathSegment(const String path, const uint8_t index) {
     String tmp = path;
 
-    uint8_t pos = tmp.indexOf('/');
+    int pos = tmp.indexOf('/');
     uint8_t left = index;
     while (left > 0) {
+        if (pos == -1)
+            return String();
         tmp = tmp.substring(pos + 1, -1);
         pos = tmp.indexOf('/');
         left--;
     }
     return tmp.substring(0, pos);
+}
+
+bool RcCodec::sendDiscovery(JsonDocument doc) {
+    RcCodec* codec = find(doc[FPSTR(STR_PROTOCOL)]);
+    if (codec != nullptr) {
+        std::vector<JsonVariant> fields;
+        codec->getDiscoveryFields(doc, fields);
+        if (fields.size() == 0)
+            return false;
+
+        String haName = String(codec->name);
+        String haId = String(codec->name);
+        String topic = baseTopic + F("/") + String(codec->name);
+        for (auto &field : fields) {
+            haName += F(" ") + field.as<String>();
+            haId += F("_") + field.as<String>();
+            topic += F("/") + field.as<String>();
+        }
+
+        String cmdTopic = topic + F("/set");
+
+        haDisc.createSwitch(haName, haId, cmdTopic);
+        haDisc.setStateTopic(topic);
+        haDisc.setOptimistic(true);
+        return haDisc.publish();
+    }
+    return false;
 }
 
 /**
@@ -250,35 +329,72 @@ void RcCodec::encodeBinLSB(const uint32_t val, const uint8_t bits, const uint8_t
         symbolBuf[symbolBufLen++] = (val & mask) != 0 ? iHighSymbol : 0;
 }
 
-uint32_t RcCodec::decodeBinLSB() {
+void RcCodec::encodeBinMSB(const uint32_t val, const uint8_t bits) {
+    for (uint32_t mask=1<<(bits-1); mask>0; mask >>= 1)
+        symbolBuf[symbolBufLen++] = (val & mask) != 0 ? 1 : 0;
+}
+
+uint32_t RcCodec::decodeBinLSB(const uint8_t start, const uint8_t len) {
     uint32_t result = 0;
-    for (uint8_t i=0; i<symbolBufLen; i++)
-        if (symbolBuf[i] > 0)
+    uint8_t end = (len != 0) ? len : symbolBufLen;
+    for (uint8_t i=0; i<end; i++)
+        if (symbolBuf[i + start] > 0)
             result |= 1<<i;
+    return result;
+}
+
+uint32_t RcCodec::decodeBinMSB(const uint8_t start, const uint8_t len) {
+    uint32_t result = 0;
+    uint8_t end = (len != 0) ? len : symbolBufLen;
+    for (uint8_t i=0; i<end; i++) {
+        result <<= 1;
+        if (symbolBuf[i + start] > 0)
+            result |= 1;
+    }
     return result;
 }
 
 /**
  * publish RF received data
  */
-void RcCodec::publish(String path, String payload, JsonDocument &doc) {
-    String topic = baseTopic + '/' + name + '/' + path;
-    mqtt.publish(topic.c_str(), payload.c_str());
+void RcCodec::publish(String payload, JsonDocument &doc) {
+    String path;
+    std::vector<JsonVariant> fields;
+    getDiscoveryFields(doc, fields);
+    for (auto &field : fields) {
+        path += '/';
+        path += field.as<String>();
+    }
 
-    ws.textAll(F("Received protocol ") + String(name));
-    ws.textAll(F("MQTT: ") + topic + F("/set ") + payload);
+    String topic = baseTopic + '/' + FPSTR(name);
+    topic += path;
+
+    if (mqtt.connected())
+        mqtt.publish(topic.c_str(), payload.c_str());
+
+    ws.textAll(String(F("Received protocol ")) + FPSTR(name));
+    ws.textAll(String(F("MQTT: ")) + topic + F("/set ") + payload);
     
-    topic = F("send/") + String(name) + "/" + path;
+    topic = F("send/") + String(name) + path;
     if (!payload.isEmpty())
         topic += "/" + payload;
-    
+
     ws.textAll(F("HTTP: <a href=\"") + topic + F("\" target=\"_blank\">http://") + WiFi.localIP().toString() + "/" + topic + F("</a>"));
 
-    doc[F("protocol")] = FPSTR(name);
-    topic = baseTopic + F("/received");
-    mqtt.beginPublish(topic.c_str(), measureJson(doc), false);
-    serializeJson(doc, mqtt);
-    mqtt.endPublish();
+    if (mqtt.connected()) {
+        doc[FPSTR(STR_PROTOCOL)] = String(name);
+
+        String jsdata;
+        serializeJson(doc, jsdata);
+        jsdata.replace("\"", "&quot;");
+        String btn = F("<button onclick=\"sendDiscovery(this)\" data-discovery='") + jsdata + F("'>send HA discovery</button>");
+        ws.textAll(btn);
+                
+        topic = baseTopic + F("/received");
+        mqtt.beginPublish(topic.c_str(), measureJson(doc), false);
+        serializeJson(doc, mqtt);
+        mqtt.endPublish();
+    }
 }
 
 
@@ -338,26 +454,36 @@ bool ITTristate::encodeSymbols(const char house, const uint8_t group, const uint
 bool ITTristate::encodeSymbols(String path, String payload) {
     // path for ittristate: <house A-P>/<group 1-4>/<channel 1-4>
     
-    String sHouse = getPathSegment(path, 0);
-    uint8_t group = getPathSegment(path, 1).toInt();
-    uint8_t channel = getPathSegment(path, 2).toInt();
-    bool on = payload == F("on");
+    const String sHouse = getPathSegment(path, 0);
+    const String sGroup = getPathSegment(path, 1);
+    const String sChannel = getPathSegment(path, 2);
+    if ((sHouse.length() != 1) || sGroup.isEmpty() || sChannel.isEmpty())
+        return false;
+    uint8_t group = sGroup.toInt();
+    uint8_t channel = sChannel.toInt();
+    bool on = payload == FPSTR(STR_ON);
 
-    if (sHouse.length() == 1)
-        return encodeSymbols(sHouse.charAt(0), group, channel, on);
-    return false;
+    return encodeSymbols(sHouse.charAt(0), group, channel, on);
 }
 
 bool ITTristate::encodeSymbols(const JsonObject &obj) {
-    if ( !obj[F("house")].is<const char*>() || !obj[FPSTR(STR_COMMAND)].is<const char*>() )
+    if ( !obj[FPSTR(STR_HOUSE)].is<const char*>() || !obj[FPSTR(STR_COMMAND)].is<const char*>() )
         return false;
 
-    String sHouse = obj[F("house")].as<String>();
+    String sHouse = obj[FPSTR(STR_HOUSE)].as<String>();
     uint8_t group = obj[F("group")];
     uint8_t channel = obj[F("channel")];
-    bool on = obj[FPSTR(STR_COMMAND)].as<String>() == F("on");
+    bool on = obj[FPSTR(STR_COMMAND)].as<String>() == FPSTR(STR_ON);
 
     return encodeSymbols(sHouse.charAt(0), group, channel, on);
+}
+
+void ITTristate::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
+    fields.push_back(doc[FPSTR(STR_HOUSE)]);
+    if (!doc[FPSTR(STR_GROUP)].isNull())
+        fields.push_back(doc[FPSTR(STR_GROUP)]);
+    if (!doc[FPSTR(STR_CHANNEL)].isNull())
+        fields.push_back(doc[FPSTR(STR_CHANNEL)]);
 }
 
 void ITTristate::onDecodedPulses() {
@@ -367,17 +493,16 @@ void ITTristate::onDecodedPulses() {
     uint8_t act = bin >> 10;
     String payload;
     if (act == 0b11)
-        payload = F("on");
+        payload = FPSTR(STR_ON);
     else
         if (act == 0b01)
-            payload = F("off");
+            payload = FPSTR(STR_OFF);
         else
             return;
 
-    String path(house);
     JsonDocument doc;    
 
-    doc[F("house")] = String(house);
+    doc[FPSTR(STR_HOUSE)] = String(house);
 
     if ( (symbolBuf[4] == 3) && (symbolBuf[5] == 3) && (symbolBuf[6] == 3) && (symbolBuf[7] == 3) ) {
         // switch all channels & groups
@@ -385,13 +510,12 @@ void ITTristate::onDecodedPulses() {
     else {
         uint8_t channel = ((bin >> 4) & 0x03) + 1;
         uint8_t group = ((bin >> 6) & 0x03) + 1;
-        path += '/' + String(group) + '/' + String(channel); 
-        doc[F("channel")] = channel;
-        doc[F("group")] = group;
+        doc[FPSTR(STR_CHANNEL)] = channel;
+        doc[FPSTR(STR_GROUP)] = group;
     }
 
     doc[FPSTR(STR_COMMAND)] = payload;
-    publish(path, payload, doc);
+    publish(payload, doc);
 }
 
 
@@ -407,7 +531,7 @@ RcCodec::CodecParams IT32::defParams = {
     4,          // number of pulses per symbol
     3,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
     {1, 39},    // footer
-    5,          // tx tries
+    5,          // tx repeats
     {
         1, 1, 1, 5,     // symbol 0: 0b0
         1, 5, 1, 1,     // symbol 1: 0b1
@@ -428,64 +552,60 @@ uint8_t IT32::encodePulses(uint8_t *pulseBuf) {
 
 bool IT32::encodeSymbols(String path, String payload) {
     // path for intertechno: <id>/<channel>
-    uint32_t id = getPathSegment(path, 0).toInt();
-    uint8_t channel = getPathSegment(path, 1).toInt();
+    const String sId = getPathSegment(path, 0);
+    const String sChannel = getPathSegment(path, 1);
+    if (sId.isEmpty() || sChannel.isEmpty())
+        return false;
 
+    uint32_t id = sId.toInt();
+    uint8_t channel = sChannel.toInt();
     symbolBufLen = 0;
 
-    encodeInt(id, 26);
-    encodeInt(0, 1); // group bit
+    encodeBinMSB(id, 26);
+    encodeBinMSB(0, 1); // group bit
 
-    payload.toLowerCase();
-    if (payload == F("on"))
-        encodeInt(1, 1);
+    payload.toUpperCase();
+    if (payload == FPSTR(STR_ON))
+        encodeBinMSB(1, 1);
     else
-        encodeInt(0, 1);
+        encodeBinMSB(0, 1);
 
-    encodeInt(channel - 1, 4);
+    encodeBinMSB(channel - 1, 4);
     return true;
 }
 
 bool IT32::encodeSymbols(const JsonObject &obj) {
-    return true;
-
+    // TODO
+    return false;
 }
 
-bool IT32::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
+void IT32::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
+    fields.push_back(doc[F("id")]);
+    if (!doc[FPSTR(STR_CHANNEL)].isNull())
+        fields.push_back(doc[FPSTR(STR_CHANNEL)]);
+}
+
+bool IT32::decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbols) {
     // TODO check also for special (longer) frames for dimmers
+    // can be done in new method checkRxLen(), then this overridden method is not needed anymore
     return RcCodec::decodePulses(pulseBuf, len);
 }
 
 void IT32::onDecodedPulses() {
-    uint32_t data = 0;
-    for (int i=0; i<symbolBufLen; i++) {
-        data <<= 1;
-        if (symbolBuf[i] != 0)
-            data |= 1;
-    }
+    uint32_t data = decodeBinMSB(0, 32);
 
-    uint32_t id = data >> 6;
     bool group = (data >> 5) & 0x01;
     bool on = (data >> 4) & 0x01;
-    uint8_t channel = (data & 0x0F);
-
-    String path = String(id);
-    if (!group)
-        path += '/' + String(channel + 1);
-    String payload = on ? F("on") : F("off");
+    String payload = on ? FPSTR(STR_ON) : FPSTR(STR_OFF);
 
     JsonDocument doc;
-    doc[F("id")] = id;
+    doc[F("id")] = data >> 6;;
     doc[FPSTR(STR_COMMAND)] = payload;
+    if (!group)
+        doc[FPSTR(STR_CHANNEL)] = (data & 0x0F) + 1;
     
-    publish(path, payload, doc);
+    publish(payload, doc);
 }
-
-void IT32::encodeInt(const uint32_t val, const uint8_t bits) {
-    for (uint32_t mask=1<<(bits-1); mask>0; mask >>= 1)
-        symbolBuf[symbolBufLen++] = (val & mask) != 0 ? 1 : 0;
-}
-
 
 
 PilotaCasa::CmdTable PilotaCasa::cmdTable[] = {
@@ -525,8 +645,8 @@ bool PilotaCasa::encodeSymbols(String path, String payload) {
     uint8_t channel = getPathSegment(path, 1).toInt();
     uint8_t group = getPathSegment(path, 2).toInt();
 
-    payload.toLowerCase();
-    uint8_t cmd = payload == "on" ? 1 : 0;
+    payload.toUpperCase();
+    uint8_t cmd = (payload == FPSTR(STR_ON)) ? 1 : 0;
 
     uint32_t data = 0;
     data |= id << 8;
@@ -546,16 +666,19 @@ bool PilotaCasa::encodeSymbols(String path, String payload) {
 }
 
 bool PilotaCasa::encodeSymbols(const JsonObject &obj) {
-    return true;
+    return false;
+}
+
+void PilotaCasa::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
+    fields.push_back(doc[F("id")]);
+    if (!doc[FPSTR(STR_GROUP)].isNull())
+        fields.push_back(doc[FPSTR(STR_GROUP)]);
+    if (!doc[FPSTR(STR_CHANNEL)].isNull())
+        fields.push_back(doc[FPSTR(STR_CHANNEL)]);
 }
 
 void PilotaCasa::onDecodedPulses() {
-    uint32_t data = 0;
-    for (int i=0; i<symbolBufLen; i++) {
-        data <<= 1;
-        if (symbolBuf[i] != 0)
-            data |= 1;
-    }
+    uint32_t data = decodeBinMSB(0, symbolBufLen);
 
     uint16_t id = data >> 8;
     uint8_t cmd = (data >> 24) & 0x3F;
@@ -566,18 +689,16 @@ void PilotaCasa::onDecodedPulses() {
     }
 
     if (i<sizeof(cmdTable) / sizeof(cmdTable[0])) {
-        String path = String(id);
-        if (cmdTable[i].channel > 0) {
-            path += '/' + String(cmdTable[i].group) + '/' + String(cmdTable[i].channel);
-        }
-        String payload = cmdTable[i].cmd == 0 ? F("off") : F("on");
+        String payload = cmdTable[i].cmd == 0 ? FPSTR(STR_OFF) : FPSTR(STR_ON);
 
         JsonDocument doc;
         doc[F("id")] = id;
-        doc[F("group")] = cmdTable[i].group;
-        doc[F("channel")] = cmdTable[i].channel;
+        if (cmdTable[i].channel > 0) {
+            doc[FPSTR(STR_GROUP)] = cmdTable[i].group;
+            doc[FPSTR(STR_CHANNEL)] = cmdTable[i].channel;
+        }
         doc[FPSTR(STR_COMMAND)] = payload;
-        publish(path, payload, doc);
+        publish(payload, doc);
     }
 }
 
@@ -617,7 +738,7 @@ bool EV1527Codec::encodeSymbols(String path, String payload) {
 }
 
 bool EV1527Codec::encodeSymbols(const JsonObject &obj) {
-    return true;
+    return false;
 }
 
 void EV1527Codec::decodeSymbols(uint32_t &id, uint8_t &data) {
@@ -634,6 +755,11 @@ void EV1527Codec::decodeSymbols(uint32_t &id, uint8_t &data) {
     }
 }
 
+void EV1527Codec::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
+    fields.push_back(doc[F("id")]);
+    fields.push_back(doc[F("data")]);
+}
+
 void EV1527Codec::onDecodedPulses() {
     uint32_t id;
     uint8_t data;
@@ -642,7 +768,7 @@ void EV1527Codec::onDecodedPulses() {
     JsonDocument doc;
     doc[F("id")] = id;
     doc[F("data")] = data;
-    publish(String(id) + '/' + data, F("press"), doc);
+    publish(F("press"), doc);
 }
 
 
@@ -671,7 +797,11 @@ bool Emylo::encodeSymbols(String path, String payload) {
 }
 
 bool Emylo::encodeSymbols(const JsonObject &obj) {
-    return true;
+    return false;
+}
+
+void Emylo::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
+    fields.push_back(doc[F("id")]);
 }
 
 void Emylo::onDecodedPulses() {
@@ -692,7 +822,7 @@ void Emylo::onDecodedPulses() {
         JsonDocument doc;
         doc[F("id")] = id;
         doc[F("key")] = String(key);
-        publish(String(id), String(key), doc);
+        publish(String(key), doc);
     }
 }
 
@@ -700,9 +830,9 @@ void Emylo::onDecodedPulses() {
 RcCodec::CodecParams FS20Codec::defParams = {
     200,        // timebase
     150, 250,   // timebase min / max
-    10,         // 13 sync + 18 housecode + 9 address + 9 command + 9 checksum + 1 stop, optional + 9 bits extended command TODO numSymbols
+    58,         // 13 sync + 18 housecode + 9 address + 9 command + 9 checksum + 1 stop, optional + 9 bits extended command
     0,          // numSymbolsAutoTimebase; no automatic timebase calculation, because symbols are different in lengths
-    2,          // 
+    2,          // numTableSymbols
     2,          // 2 pulses per symbol
     5,          // rx quality factor
     {1, 30},    // TODO check values!
@@ -718,26 +848,152 @@ FS20Codec::FS20Codec() {
     params = &defParams;
 }
 
-bool FS20Codec::encodeSymbols(String path, String payload) {
-    // TODO 
-    return false;
+void FS20Codec::encodeByte(const uint8_t b) {
+    uint16_t val = b << 1;
+    // calculate even parity bit
+    if (!checkEvenParity(val))
+        val |= 0x01;
+
+    encodeBinMSB(val, 9);
 }
 
-bool FS20Codec::encodeSymbols(const JsonObject &obj) {
+void FS20Codec::encodeSymbols(const uint16_t house, const uint8_t address, const uint16_t command) {
+    symbolBufLen = 0;
+    encodeBinMSB(0b0000000000001, 13); // sync
+    encodeByte(house >> 8);
+    encodeByte(house & 0xFF);
+    encodeByte(address);
+    encodeByte(command);
+    if (command & (1<<5)) // extended command
+        encodeByte(command >> 8);
+    uint8_t csum = ( (house >> 8) + (house & 0xFF) + address + (command >> 8) + (command & 0xFF) + 6) & 0xFF;
+    encodeByte(csum);
+}
+
+void FS20Codec::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
+    fields.push_back(doc[FPSTR(STR_HOUSE)]);
+    fields.push_back(doc[FPSTR(STR_ADDRESS)]);
+}
+
+uint16_t FS20Codec::strToCmd(const String &str) {
+    if (str == FPSTR(STR_ON))
+        return 0x11;
+    else
+        if (str == FPSTR(STR_OFF))
+            return 0x00;
+        else
+            return strtol(str.c_str(), NULL, 16);
+}
+
+bool FS20Codec::encodeSymbols(String path, String payload) {
+    const String sHouse = getPathSegment(path, 0);
+    const String sAddress = getPathSegment(path, 1);
+    if (sHouse.isEmpty() || sAddress.isEmpty())
+        return false;
+
+    encodeSymbols(sHouse.toInt(), sAddress.toInt(), strToCmd(payload));
     return true;
 }
 
-bool FS20Codec::decodePulses(const uint8_t *pulseBuf, const uint8_t len) {
-    if (len >= 117) {
-        const uint8_t *p = pulseBuf + len - 115; // omitt decoding of 1st symbol as first pulse might be enlarged by noise
+bool FS20Codec::encodeSymbols(const JsonObject &obj) {
+    if ( !obj[FPSTR(STR_HOUSE)].is<const char*>() || 
+         !obj[FPSTR(STR_ADDRESS)].is<const char*>() ||
+         !obj[FPSTR(STR_COMMAND)].is<const char*>() 
+        )
+        return false;
 
-        uint8_t numSymbols = RcCodec::decodePulses(p, len - 2);
-        return numSymbols;
+    String sHouse = obj[FPSTR(STR_HOUSE)].as<String>();
+    String sAddress = obj[FPSTR(STR_ADDRESS)].as<String>();
+    String sCmd = obj[FPSTR(STR_COMMAND)].as<String>();
+
+    const uint16_t cmd = strToCmd(obj[FPSTR(STR_COMMAND)].as<String>());
+
+    encodeSymbols(sHouse.toInt(), sAddress.toInt(), cmd);
+    return true;
+}
+
+bool FS20Codec::checkEvenParity(const uint16_t value) {
+    uint8_t count = 0;
+    uint16_t x = value;
+    while (x) {
+        x &= x - 1;
+        count++;
     }
+    return (count % 2) == 0;
+}
 
-    return 0;
+bool FS20Codec::getByte(const uint8_t pos, uint8_t &value) {
+    uint16_t tmp = decodeBinMSB(pos, 9);
+    if (!checkEvenParity(tmp)) {
+        return false;
+    }
+    value = tmp >> 1; // strip of parity bit
+    return true;
+}
+
+bool FS20Codec::decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbol) {
+    if (RcCodec::decodePulses(pulseBuf, len))
+        return true;
+
+    return RcCodec::decodePulses(pulseBuf, len, params->getNumSymbols() + 9); // try again with extended frame (with cmd2)
 }
 
 void FS20Codec::onDecodedPulses() {
+    uint16_t head = decodeBinMSB(0, 13);
+    if (head != 0b0000000000001)
+        return;
 
+    uint8_t hc8;
+    uint16_t hc;
+    if (!getByte(13, hc8))
+        return;
+    hc = hc8 << 8;
+
+    if (!getByte(22, hc8))
+        return;
+    hc |= hc8;
+
+    uint8_t adr, cmd, cmd2 = 0, csum;
+    if (!getByte(31, adr))
+        return;
+
+    if (!getByte(40, cmd))
+        return;
+
+    bool ext = (cmd & (1<<5)) != 0;
+    if (!getByte(49, csum))
+        return;
+
+    if (ext) {
+        cmd2 = csum;
+        if (!getByte(58, csum))
+            return;
+    }
+
+    const uint8_t calcCsum = ((hc & 0xFF) + (hc >> 8) + adr + cmd + cmd2 + ext + 6) & 0xFF;
+    if (csum != calcCsum) { // TODO if repeaters are used, checksum may be 1-2 higher
+        return;
+    }
+
+    JsonDocument doc;    
+    String payload;
+
+    switch (cmd) {
+        case 0x00: 
+            payload = FPSTR(STR_OFF);
+            break;
+        case 0x10:
+        case 0x11:
+            payload = FPSTR(STR_ON);
+            break;
+        default:
+            payload = String(cmd | (cmd2 << 8), HEX);
+            break;
+    }
+
+    doc[FPSTR(STR_HOUSE)] = hc;
+    doc[FPSTR(STR_ADDRESS)] = adr;
+    doc[FPSTR(STR_COMMAND)] = payload;
+
+    publish(payload, doc);
 }
