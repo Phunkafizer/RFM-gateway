@@ -162,6 +162,19 @@
             font-family: "Lucida Console", "Courier New", monospace;
         }
 
+        #logstatus {
+            height: 0.5em;
+            background-color: red;
+        }
+
+        #logstatus.connected {
+            background-color: green;
+        }
+
+        #logstatus.disconnected {
+            background-color: red;
+        }
+
         .appsettings {
             display: none;
         }
@@ -459,8 +472,8 @@
         </div>
 
         <div id="tab-log" class="tab">
-            <div id="console">
-            </div>
+            <div id="console"></div>
+            <div id="logstatus"></div>
             <div class="btnbar">
                 <button id="btnclearlog">clear log</button>
             </div>
@@ -881,20 +894,39 @@
             getConfig();
             getStatus();
 
-            websocket = new WebSocket("ws");
-            websocket.onopen = (ev) => {
-            }
 
-            websocket.onclose = (ev) => {
-            }
 
-            websocket.onmessage = (ev) => {
-                let e = _$("div");
-                e.innerHTML = ev.data;
-                let cons = _("#console");
-                cons.append(e);
-                cons.scrollTop = cons.scrollHeight;
+
+            function connectWS() {
+                function logws(msg) {
+                    let e = _$("div");
+                    e.innerHTML = msg;
+                    let cons = _("#console");
+                    cons.append(e);
+                    cons.scrollTop = cons.scrollHeight;
+                }
+
+                var websocket = new WebSocket("ws");
+                websocket.onopen = (ev) => {
+                    _("#logstatus").classList.add('connected');
+                    //_("#logstatus").classList.remove('disconnected');
+                }
+                websocket.onclose = (ev) => {
+                    //_("#logstatus").classList.add('disconnected');
+                    _("#logstatus").classList.remove('connected');
+                    setTimeout(function() {
+                        connectWS();
+                    }, 1000);
+                }
+                websocket.onmessage = (ev) => {
+                    logws(ev.data);
+                }
+                websocket.onerror = (ev) => {
+                    logws("Error");
+                    websocket.close();
+                }
             }
+            connectWS();
         }
     </script>
 </body>

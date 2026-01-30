@@ -14,7 +14,6 @@ private:
     static RcCodec *codecs;
     static RcCodec* find(const String name);
     virtual void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {(void) doc; (void) fields;}
-    uint16_t tbToPulses(const uint8_t tb) const;
 protected:
     struct CodecParams {
         uint8_t getNumSymbols() const;
@@ -26,10 +25,11 @@ protected:
         uint8_t numTableSymbols; // number of symbols in symbolTable
         uint8_t pulsesPerSymbol; // number of pulses per symbol
         uint8_t qDecode; // "quality factor": matching windows go from x-(x/qDecode) to x+(x/qDecode)
-        uint8_t footer[2];
+        uint8_t footer[2];  // unit of footer: *timebase
         uint8_t txRepeats; // number of tx tries
         uint8_t symbolTable[];
     } *params;
+    uint16_t tbToPulses(const uint8_t tb) const;
     virtual uint8_t encodePulses(uint8_t *pulseBuf);
     virtual bool encodeSymbols(String path, String payload) = 0;
     virtual bool encodeSymbols(const JsonObject &obj) = 0;
@@ -189,7 +189,6 @@ protected:
     void onDecodedPulses() override;
 public:
     Emylo();
-
 };
 
 

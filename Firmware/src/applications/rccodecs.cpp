@@ -407,7 +407,7 @@ RcCodec::CodecParams TristateCodec::defParams = {
     4,          // number of pulses per symbol
     2,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
     {1, 31},    // footer
-    5,          // tx tries
+    5,          // tx repeats
     {
         1, 3, 1, 3,     // symbol 0: bit 0
         3, 1, 3, 1,     // symbol 1: bit 1
@@ -531,7 +531,7 @@ RcCodec::CodecParams IT32::defParams = {
     4,          // number of pulses per symbol
     3,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
     {1, 39},    // footer
-    5,          // tx repeats
+    4,          // tx repeats
     {
         1, 1, 1, 5,     // symbol 0: 0b0
         1, 5, 1, 1,     // symbol 1: 0b1
@@ -545,8 +545,9 @@ IT32::IT32() {
 }
 
 uint8_t IT32::encodePulses(uint8_t *pulseBuf) {
-    pulseBuf[0] = 1;
-    pulseBuf[1] = 60;
+    // add sync symbol 
+    pulseBuf[0] = tbToPulses(1);
+    pulseBuf[1] = tbToPulses(11);
     return RcCodec::encodePulses(&pulseBuf[2]) + 2;
 }
 
@@ -627,7 +628,7 @@ RcCodec::CodecParams PilotaCasa::defParams = {
     2,          // number of pulses per symbol
     3,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
     {1, 40},    // footer TODO check values!
-    5,          // tx tries
+    5,          // tx repeats
     {
         2, 1,   // symbol 0: 0b0
         1, 2,   // symbol 1: 0b1
@@ -711,7 +712,7 @@ RcCodec::CodecParams EV1527Codec::defParams = {
     2,          // number of pulses per symbol
     3,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
     {1, 31},    // footer
-    5,          // tx tries
+    5,          // tx repeats
     {
         1, 3,   // symbol 0: 0b0
         3, 1,   // symbol 1: 0b1
@@ -836,7 +837,7 @@ RcCodec::CodecParams FS20Codec::defParams = {
     2,          // 2 pulses per symbol
     5,          // rx quality factor
     {1, 30},    // TODO check values!
-    5,          // tx tries
+    5,          // tx repeats
     {
         2, 2,   // symbol 0: 0b0
         3, 3    // symbol 1: 0b1
