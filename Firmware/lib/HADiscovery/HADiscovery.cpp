@@ -230,3 +230,9 @@ void HADiscovery::createSwitch(String name, String id, String cmdTopic) {
     init(name, id, F("switch"));
     doc[FPSTR(HA_COMMAND_TOPIC)] = cmdTopic;
 }
+
+void HADiscovery::createButton(String name, String id, String cmdTopic) {
+    init(name, id, F("button"));
+    setStateTopic("");
+    doc[FPSTR(HA_COMMAND_TOPIC)] = cmdTopic;
+}

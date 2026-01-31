@@ -31,5 +31,5 @@ public:
     void loop() override;
     void onMqttMessage(const String topic, const String payload) override;
     void sendPulseBuf(RcCodec &codec);
-    bool sendDiscovery(JsonDocument doc) override;
+    bool sendDiscovery(JsonDocument &doc) override;
 };

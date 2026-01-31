@@ -171,10 +171,6 @@
             background-color: green;
         }
 
-        #logstatus.disconnected {
-            background-color: red;
-        }
-
         .appsettings {
             display: none;
         }
@@ -894,9 +890,6 @@
             getConfig();
             getStatus();
 
-
-
-
             function connectWS() {
                 function logws(msg) {
                     let e = _$("div");
@@ -912,6 +905,7 @@
                     //_("#logstatus").classList.remove('disconnected');
                 }
                 websocket.onclose = (ev) => {
+                    logws("close");
                     //_("#logstatus").classList.add('disconnected');
                     _("#logstatus").classList.remove('connected');
                     setTimeout(function() {
@@ -923,6 +917,7 @@
                 }
                 websocket.onerror = (ev) => {
                     logws("Error");
+                    _("#logstatus").classList.remove('connected');
                     websocket.close();
                 }
             }

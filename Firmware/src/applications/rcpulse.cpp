@@ -200,7 +200,7 @@ void RcPulseTransceiver::handleBody(AsyncWebServerRequest *request __attribute__
     if (tmp.length() == total) {
         JsonDocument doc;
         if (deserializeJson(doc, tmp) == DeserializationError::Ok) {
-            RcCodec *codec = RcCodec::encode(doc.as<JsonObject>(), pulseBuf, bufLen);
+            RcCodec *codec = RcCodec::encode(doc, pulseBuf, bufLen);
             if (codec) {
                 sendPulseBuf(*codec);
                 request->send(200);
@@ -228,14 +228,14 @@ void RcPulseTransceiver::onMqttMessage(const String topic, const String payload)
     else if (topic.compareTo(F("send")) == 0) {
         JsonDocument doc;
         if (deserializeJson(doc, payload) == DeserializationError::Ok)
-            codec = RcCodec::encode(doc.as<JsonObject>(), pulseBuf, bufLen);
+            codec = RcCodec::encode(doc, pulseBuf, bufLen);
     }
 
     if (codec)
         sendPulseBuf(*codec);
 }
 
-bool RcPulseTransceiver::sendDiscovery(JsonDocument doc) {
+bool RcPulseTransceiver::sendDiscovery(JsonDocument &doc) {
     return RcCodec::sendDiscovery(doc);
 }
 

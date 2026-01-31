@@ -9,7 +9,7 @@ public:
     virtual ~RadioApplication();
     virtual void loop() = 0;
     virtual void onMqttMessage(String topic, String payload) {(void) topic; (void) payload;}
-    virtual bool sendDiscovery(JsonDocument doc) = 0;
+    virtual bool sendDiscovery(JsonDocument &doc) = 0;
 };
 
 extern RadioApplication *radioapp;

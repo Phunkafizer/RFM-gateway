@@ -504,6 +504,6 @@ void Gw868::loop() {
     }
 }
 
-bool Gw868::sendDiscovery(JsonDocument doc) {
+bool Gw868::sendDiscovery(JsonDocument &doc) {
     return false;
 }

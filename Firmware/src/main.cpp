@@ -13,6 +13,7 @@
 #include "global.h"
 #include "HADiscLocal.h"
 
+
 enum RfmType : uint8_t {
     RFM_TYPE_RFM69xx = 0,
     RFM_TYPE_RFM69Hxx = 1,
@@ -28,7 +29,6 @@ enum FreqBand : uint8_t {
     FREQ_BAND_868 = 2,
     FREQ_BAND_915 = 3
 };
-
 
 static const char FILE_RADIO[] PROGMEM = "radio.json";
 static const char FILE_CONFIG[] PROGMEM = "config.json";
@@ -478,8 +478,6 @@ void setup() {
             (void) len;
 
             if (index + len == total) {
-                Serial.println((char*) data);
-
                 JsonDocument doc;
                 if ( (deserializeJson(doc, (char*) data, len) == DeserializationError::Ok) &&
                      (radioapp != nullptr) &&
@@ -559,7 +557,7 @@ void loop() {
             );
             if (con) {
                 mqtt.publish(statusTopic.c_str(), "online", true);
-                String subtopic = baseTopic + "/#";
+                String subtopic = baseTopic + F("/#");
                 mqtt.subscribe(subtopic.c_str());
                 ws.textAll(F("MQTT connected"));
             }

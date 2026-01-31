@@ -49,5 +49,6 @@ public:
     void createNumber(String name, String id, String cmdTopic);
     void createClima(String name, String id, String tmpCmdTopic);
     void createSwitch(String name, String id, String cmdTopic);
+    void createButton(String name, String id, String cmdTopic);
     void createrWaterHeater(String name, String id, String tmpCmdTopic);
 };

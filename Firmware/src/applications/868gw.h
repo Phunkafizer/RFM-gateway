@@ -12,5 +12,5 @@ private:
 public:
     Gw868(const JsonObject &conf);
     void loop();
-    bool sendDiscovery(JsonDocument doc) override;
+    bool sendDiscovery(JsonDocument &doc) override;
 };

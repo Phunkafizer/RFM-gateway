@@ -13,10 +13,10 @@ private:
     uint8_t localSymbolBuf[SYMBOLBUFSIZE];
     static RcCodec *codecs;
     static RcCodec* find(const String name);
+    static uint16_t last_timebase; // last received timebase
     virtual void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {(void) doc; (void) fields;}
 protected:
     struct CodecParams {
-        uint8_t getNumSymbols() const;
         uint16_t timebase; // timebase in µS
         uint16_t timebase_min; //
         uint16_t timebase_max;
@@ -29,12 +29,13 @@ protected:
         uint8_t txRepeats; // number of tx tries
         uint8_t symbolTable[];
     } *params;
-    uint16_t tbToPulses(const uint8_t tb) const;
-    virtual uint8_t encodePulses(uint8_t *pulseBuf);
+    uint16_t tbToPulses(const uint8_t tb, const uint16_t timebase) const;
+    virtual uint8_t encodePulses(uint8_t *pulseBuf, const uint16_t timebase = 0);
     virtual bool encodeSymbols(String path, String payload) = 0;
-    virtual bool encodeSymbols(const JsonObject &obj) = 0;
+    virtual bool encodeSymbols(JsonDocument &doc) = 0;
     virtual bool decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbols = 0);
     virtual void onDecodedPulses() = 0;
+    virtual bool checkSymbolBuf();
     void matchSymbols(const uint8_t *pulseBuf, const uint8_t len);
     String getPathSegment(const String path, const uint8_t index);
     void publish(String payload, JsonDocument &doc);
@@ -42,6 +43,7 @@ protected:
     void encodeBinMSB(const uint32_t val, const uint8_t bits);
     uint32_t decodeBinLSB(const uint8_t start = 0, const uint8_t len = 0);
     uint32_t decodeBinMSB(const uint8_t start = 0, const uint8_t len = 0);
+    virtual bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic);
     PGM_P name;
 public:
     static uint8_t symbolBuf[SYMBOLBUFSIZE];
@@ -50,9 +52,9 @@ public:
     virtual ~RcCodec();
     static void freeCodecs();
     static RcCodec* encode(String path, String payload, uint8_t *pulseBuf, uint8_t &pulseBufLen);
-    static RcCodec* encode(const JsonObject& obj, uint8_t *pulseBuf, uint8_t &pulseBufLen);
+    static RcCodec* encode(JsonDocument &doc, uint8_t *pulseBuf, uint8_t &pulseBufLen);
     static bool decode(const uint8_t *pulseBuf, const uint8_t len);
-    static bool sendDiscovery(JsonDocument doc);
+    static bool sendDiscovery(JsonDocument &doc);
     uint8_t getTxRepeats() const;
     void getFooter(uint16_t footer[2]) const;
 };
@@ -86,9 +88,8 @@ private:
     void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) override;
 protected:
     void onDecodedPulses() override;
-    bool encodeSymbols(const char house, const uint8_t group, const uint8_t channel, const bool on);
     bool encodeSymbols(String path, String payload) override;
-    bool encodeSymbols(const JsonObject &obj) override;
+    bool encodeSymbols(JsonDocument &doc) override;
 public:
     ITTristate();
 };
@@ -117,9 +118,9 @@ private:
     static RcCodec::CodecParams defParams;
     void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) override;
 protected:
-    uint8_t encodePulses(uint8_t *pulseBuf) override;
+    uint8_t encodePulses(uint8_t *pulseBuf, const uint16_t timebase) override;
     bool encodeSymbols(String path, String payload) override;
-    bool encodeSymbols(const JsonObject &obj) override;
+    bool encodeSymbols(JsonDocument &doc) override;
     bool decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbols = 0) override;
     void onDecodedPulses() override;
 public:
@@ -149,7 +150,7 @@ private:
     void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) override;
 protected:
     bool encodeSymbols(String path, String payload) override;
-    bool encodeSymbols(const JsonObject &obj) override;
+    bool encodeSymbols(JsonDocument &doc) override;
     void onDecodedPulses() override;
 public:
     PilotaCasa();
@@ -171,11 +172,11 @@ private:
     static RcCodec::CodecParams defParams;
     void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) override;
 protected:
-    void encodeSymbols(const uint32_t code, const uint8_t data);
     bool encodeSymbols(String path, String payload) override;
-    bool encodeSymbols(const JsonObject &obj) override;
+    bool encodeSymbols(JsonDocument &doc) override;
     void onDecodedPulses() override;
     void decodeSymbols(uint32_t &id, uint8_t &data);
+    bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) override;
 public:
     EV1527Codec();
 };
@@ -185,7 +186,7 @@ private:
     void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) override;
 protected:
     bool encodeSymbols(String path, String payload) override;
-    bool encodeSymbols(const JsonObject &obj) override;
+    bool encodeSymbols(JsonDocument &doc) override;
     void onDecodedPulses() override;
 public:
     Emylo();
@@ -206,15 +207,15 @@ private:
     static RcCodec::CodecParams defParams;
     bool checkEvenParity(const uint16_t value);
     bool getByte(const uint8_t pos, uint8_t &value);
-    void encodeSymbols(const uint16_t house, const uint8_t address, const uint16_t command);
     void encodeByte(const uint8_t b);
     uint16_t strToCmd(const String &str);
     void getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) override;
 protected:
     bool encodeSymbols(String path, String payload) override;
-    bool encodeSymbols(const JsonObject &obj) override;
+    bool encodeSymbols(JsonDocument &doc) override;
     bool decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbols = 0) override;
     void onDecodedPulses() override;
+    bool checkSymbolBuf() override;
 public:
     FS20Codec();
 };
