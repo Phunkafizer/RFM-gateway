@@ -17,6 +17,7 @@ static const char STR_KEY[] PROGMEM = "key";
 static const char STR_TIMEBASE[] PROGMEM = "timebase";
 static const char STR_ON[] PROGMEM = "ON";
 static const char STR_OFF[] PROGMEM = "OFF";
+static const char STR_EXT[] PROGMEM = "ext";
 static const char STR_ENCODING_ERROR[] PROGMEM ="encoding error!";
 
 RcCodec* RcCodec::codecs = nullptr;
@@ -908,14 +909,24 @@ bool FS20Codec::encodeSymbols(String path, String payload) {
 bool FS20Codec::encodeSymbols(JsonDocument &doc) {
     if ( !doc[FPSTR(STR_HOUSE)].is<int>() || 
          !doc[FPSTR(STR_ADDRESS)].is<int>() ||
-         !doc[FPSTR(STR_COMMAND)].is<String>()
+         doc[FPSTR(STR_COMMAND)].isNull()
         )
         return false;
 
     const uint16_t house = doc[FPSTR(STR_HOUSE)];
     const uint8_t address = doc[FPSTR(STR_ADDRESS)];
-    const uint16_t cmd = strToCmd(doc[FPSTR(STR_COMMAND)]);
 
+    uint16_t cmd;
+    if (doc[FPSTR(STR_COMMAND)].is<String>())
+        cmd = strToCmd(doc[FPSTR(STR_COMMAND)]);
+    else
+        cmd = doc[FPSTR(STR_COMMAND)];
+    
+    if (doc[FPSTR(STR_EXT)].is<String>())
+        cmd |= strToCmd(doc[FPSTR(STR_EXT)]) << 8;
+    else
+        cmd |= doc[FPSTR(STR_EXT)].as<uint8_t>() << 8;
+    
     encodeBinMSB(0b0000000000001, 13); // sync
     encodeByte(house >> 8);
     encodeByte(house & 0xFF);
@@ -923,7 +934,7 @@ bool FS20Codec::encodeSymbols(JsonDocument &doc) {
     encodeByte(cmd);
     if (cmd & (1<<5)) // extended command
         encodeByte(cmd >> 8);
-    uint8_t csum = ( (house >> 8) + (house & 0xFF) + address + (cmd >> 8) + (cmd & 0xFF) + 6) & 0xFF;
+    uint8_t csum = ( (house >> 8) + (house & 0xFF) + address + (cmd & 0xFF) + (cmd >> 8) + 6) & 0xFF;
     encodeByte(csum);
 
     return true;
