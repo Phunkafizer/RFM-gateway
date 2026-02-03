@@ -1,6 +1,7 @@
 #include "rccodecs.h"
 #include "main.h"
 #include "HADiscLocal.h"
+#include "radioapplication.h"
 
 const uint16_t BITRATE = 20000;
 const uint16_t PULSEWIDTHUS = 1000000UL / BITRATE; // samplingtime of tranceiver / µS
@@ -18,6 +19,7 @@ static const char STR_TIMEBASE[] PROGMEM = "timebase";
 static const char STR_ON[] PROGMEM = "ON";
 static const char STR_OFF[] PROGMEM = "OFF";
 static const char STR_EXT[] PROGMEM = "ext";
+static const char STR_PRESS[] PROGMEM = "press";
 static const char STR_ENCODING_ERROR[] PROGMEM ="encoding error!";
 
 RcCodec* RcCodec::codecs = nullptr;
@@ -180,7 +182,7 @@ void RcCodec::matchSymbols(const uint8_t *pulseBuf, const uint8_t len) {
 
         bp += params->pulsesPerSymbol;
     }
-    #ifdef DEBUGRCDECODER
+    #ifdef DEBUGSYMBOLBUF
     String str = F("Decoded symbols: ");
     for (uint8_t i=0; i<symbolBufLen; i++)
         str += char('0' + symbolBuf[i]);
@@ -226,6 +228,12 @@ RcCodec* RcCodec::encode(String path, String payload, uint8_t *pulseBuf, uint8_t
         path = path.substring(path.indexOf('/') + 1, -1);
         symbolBufLen = 0;
         if (codec->encodeSymbols(path, payload)) {
+            #ifdef DEBUGSYMBOLBUF
+            Serial.print(F("Encoded symbols: "));
+            for (uint8_t i=0; i<symbolBufLen; i++)
+                Serial.print((char) (symbolBuf[i] + '0'));
+            Serial.println("");
+            #endif
             pulseBufLen = codec->encodePulses(pulseBuf);
             return codec;
         }
@@ -388,16 +396,8 @@ void RcCodec::publish(String payload, JsonDocument &doc) {
         if (params->numSymbolsAutoTimebase != 0)
             doc[F("timebase")] = last_timebase;
 
-        String jsdata;
-        serializeJson(doc, jsdata);
-        jsdata.replace("\"", "&quot;");
-        String btn = F("<button onclick=\"sendDiscovery(this)\" data-discovery='") + jsdata + F("'>send HA discovery</button>");
-        ws.textAll(btn);
-                
         topic = baseTopic + F("/received");
-        mqtt.beginPublish(topic.c_str(), measureJson(doc), false);
-        serializeJson(doc, mqtt);
-        mqtt.endPublish();
+        radioapp->publish(topic, doc);
     }
 }
 
@@ -662,16 +662,13 @@ bool PilotaCasa::encodeSymbols(JsonDocument &doc) {
     uint8_t channel = doc[FPSTR(STR_CHANNEL)];
     uint8_t cmd = doc[FPSTR(STR_COMMAND)].as<String>().equalsIgnoreCase(FPSTR(STR_ON)) ? 1 : 0;
 
-    uint32_t data = 0;
+    uint32_t data = 0xFF;
     data |= id << 8;
 
     for (uint8_t i=0; i<sizeof(cmdTable) / sizeof(cmdTable[0]); i++) {
         if ( (cmdTable[i].group == group) && (cmdTable[i].channel == channel) && (cmdTable[i].cmd == cmd) ) {
-            for (uint8_t bit=0; bit<32; bit++) {
-                symbolBuf[bit] = (data & 0x80000000UL) != 0 ? 1 : 0;
-                data <<= 1;
-            }
-            symbolBufLen = 32;
+            data |= cmdTable[i].data << 24;
+            encodeBinMSB(data, 32);
             return true;
         }
     }
@@ -781,7 +778,7 @@ void EV1527Codec::onDecodedPulses() {
     JsonDocument doc;
     doc[FPSTR(STR_ID)] = id;
     doc[FPSTR(STR_DATA)] = data;
-    publish(F("press"), doc);
+    publish(FPSTR(STR_PRESS), doc);
 }
 
 
@@ -790,11 +787,11 @@ Emylo::Emylo() {
 }
 
 bool Emylo::encodeSymbols(String path, String payload) {
-    // path for Emylo: <ID>, payload: 'A'-'D'
+    // path for Emylo: <ID>/<KEY 'A'..'D'>
     
     JsonDocument doc;
     doc[FPSTR(STR_ID)] = getPathSegment(path, 0).toInt();
-    doc[FPSTR(STR_KEY)] = payload;
+    doc[FPSTR(STR_KEY)] = getPathSegment(path, 1);
 
     return encodeSymbols(doc);
 }
@@ -842,7 +839,7 @@ void Emylo::onDecodedPulses() {
         JsonDocument doc;
         doc[FPSTR(STR_ID)] = id;
         doc[FPSTR(STR_KEY)] = String(key);
-        publish(String(key), doc);
+        publish(FPSTR(STR_PRESS), doc);
     }
 }
 

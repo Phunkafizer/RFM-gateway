@@ -230,9 +230,13 @@ void RcPulseTransceiver::onMqttMessage(const String topic, const String payload)
         if (deserializeJson(doc, payload) == DeserializationError::Ok)
             codec = RcCodec::encode(doc, pulseBuf, bufLen);
     }
+    else 
+        return;
 
     if (codec)
         sendPulseBuf(*codec);
+    else
+        ws.textAll(F("encoding error!"));
 }
 
 bool RcPulseTransceiver::sendDiscovery(JsonDocument &doc) {
