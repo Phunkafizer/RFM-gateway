@@ -29,7 +29,7 @@ private:
 public:
     RcPulseTransceiver(const uint32_t freq);
     void loop() override;
-    void onMqttMessage(const String topic, const String payload) override;
+    bool onMqttMessage(const String topic, const String payload) override;
     void sendPulseBuf(RcCodec &codec);
     bool sendDiscovery(JsonDocument &doc) override;
 };

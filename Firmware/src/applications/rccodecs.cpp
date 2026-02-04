@@ -591,7 +591,7 @@ void IT32::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &field
 bool IT32::decodePulses(const uint8_t *pulseBuf, const uint8_t len, const uint8_t numSymbols) {
     // TODO check also for special (longer) frames for dimmers
     // can be done in new method checkRxLen(), then this overridden method is not needed anymore
-    return RcCodec::decodePulses(pulseBuf, len);
+    return RcCodec::decodePulses(pulseBuf, len, numSymbols);
 }
 
 void IT32::onDecodedPulses() {
@@ -664,6 +664,7 @@ bool PilotaCasa::encodeSymbols(JsonDocument &doc) {
 
     uint32_t data = 0xFF;
     data |= id << 8;
+    // 2 highest bits in data are not set (device type?)
 
     for (uint8_t i=0; i<sizeof(cmdTable) / sizeof(cmdTable[0]); i++) {
         if ( (cmdTable[i].group == group) && (cmdTable[i].channel == channel) && (cmdTable[i].cmd == cmd) ) {
@@ -688,6 +689,7 @@ void PilotaCasa::onDecodedPulses() {
 
     uint16_t id = data >> 8;
     uint8_t cmd = (data >> 24) & 0x3F;
+    // 2 highest bits in data are ignored (device type?)
     uint8_t i=0;
     for (i=0; i<sizeof(cmdTable) / sizeof(cmdTable[0]); i++) {
         if (cmd == cmdTable[i].data)
@@ -730,6 +732,7 @@ EV1527Codec::EV1527Codec() {
 
 bool EV1527Codec::encodeSymbols(String path, String payload) {
     // path for EV1527Codec: <ID>/<data>
+    (void) payload;
 
     JsonDocument doc;
     doc[FPSTR(STR_ID)] = getPathSegment(path, 0).toInt();
@@ -761,6 +764,7 @@ void EV1527Codec::decodeSymbols(uint32_t &id, uint8_t &data) {
 }
 
 bool EV1527Codec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) {
+    (void) stateTopic;
     haDisc.createButton(name, id, cmdTopic);
     return haDisc.publish();
 }
@@ -788,6 +792,7 @@ Emylo::Emylo() {
 
 bool Emylo::encodeSymbols(String path, String payload) {
     // path for Emylo: <ID>/<KEY 'A'..'D'>
+    (void) payload;
     
     JsonDocument doc;
     doc[FPSTR(STR_ID)] = getPathSegment(path, 0).toInt();
@@ -819,6 +824,7 @@ bool Emylo::encodeSymbols(JsonDocument &doc) {
 
 void Emylo::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {
     fields.push_back(doc[FPSTR(STR_ID)]);
+    fields.push_back(doc[FPSTR(STR_KEY)]);
 }
 
 void Emylo::onDecodedPulses() {

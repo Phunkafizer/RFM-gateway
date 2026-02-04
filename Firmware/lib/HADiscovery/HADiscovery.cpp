@@ -152,7 +152,10 @@ void HADiscovery::setModes(const uint8_t modes) {
 }
 
 void HADiscovery::setUnit(const String unit) {
-    doc[FPSTR(HA_UNIT_OF_MEASUREMENT)] = unit;
+    if (unit.isEmpty())
+        doc.remove(FPSTR(HA_UNIT_OF_MEASUREMENT));
+    else
+        doc[FPSTR(HA_UNIT_OF_MEASUREMENT)] = unit;
 }
 
 void HADiscovery::setDeviceClass(const String dc) {
@@ -164,6 +167,10 @@ void HADiscovery::setStateClass(const String sc) {
         doc.remove(FPSTR(HA_STATE_CLASS));
     else
         doc[FPSTR(HA_STATE_CLASS)] = sc;
+}
+
+void HADiscovery::setExpire(const int i) {
+    doc[F("exp_aft")] = i;
 }
 
 void HADiscovery::createSensor(String name, String id) {

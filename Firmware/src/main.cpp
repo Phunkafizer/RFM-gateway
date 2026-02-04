@@ -48,6 +48,7 @@ WiFiClientSecure espSecClient;
 PubSubClient mqtt;
 bool rebootFlag = false;
 DNSServer dnsServer;
+String hostname;
 
 String mqttHost;
 String mqttUser;
@@ -58,6 +59,8 @@ Rfm69 *rfm69 = nullptr;
 
 Ticker ledblink;
 uint16_t leddata = 0x8000;
+
+JsonDocument discJson;
 
 void ledTickcb() {
     static uint16_t mask = 0x8000;
@@ -190,7 +193,7 @@ void wiFiEvent(WiFiEvent_t event) {
     SDBGLN((int) event);
 
     if (event == WIFI_EVENT_STAMODE_GOT_IP) {
-        //WiFi.setHostname(FPSTR(HOSTNAME)->c_str());
+        WiFi.setHostname(hostname.c_str());
     }
 
     if (event == WIFI_EVENT_STAMODE_DISCONNECTED) {
@@ -203,8 +206,8 @@ void mqttCallback(const char topic[], byte* payload, unsigned int length) {
         sTop = sTop.substring(baseTopic.length() + 1);
         String sPayload;
         sPayload.concat((const char*) payload, length);
-        radioapp->onMqttMessage(sTop, sPayload);
-        ws.textAll("Rec. MQTT ~/" + sTop + ": " + sPayload);
+        if (radioapp->onMqttMessage(sTop, sPayload))
+            ws.textAll("Rec. MQTT ~/" + sTop + ": " + sPayload);
     }
 }
 
@@ -241,7 +244,6 @@ void setup() {
     }
 
     WiFi.begin();
-    MDNS.begin(FPSTR(HOSTNAME));
     Serial.begin(76800);
     SPI.begin();
     
@@ -265,6 +267,11 @@ void setup() {
             setConfig(cfg.as<JsonObject>());
         f.close();
     }
+
+    hostname = FPSTR(HOSTNAME); // TODO make this configurable
+    MDNS.begin(hostname.c_str());
+
+    discJson.set(nullptr);
     
     websrv.begin();
     ws.onEvent(onWsEvent);
@@ -477,15 +484,27 @@ void setup() {
             (void) data;
             (void) len;
 
-            if (index + len == total) {
-                JsonDocument doc;
-                if ( (deserializeJson(doc, (char*) data, len) == DeserializationError::Ok) &&
-                     (radioapp != nullptr) &&
-                     (radioapp->sendDiscovery(doc)) )
-                        request->send(200);
-                else
-                    request->send(400);
+            if (!discJson.isNull()) {
+                request->send(400);
+                return;
             }
+
+            static String buf;
+
+            if (index == 0)
+                buf.clear();
+
+            buf.concat((const char*) data, len);
+            if (buf.length() != total)
+                return;
+
+            if (deserializeJson(discJson, buf) == DeserializationError::Ok) {
+                request->send(200);
+            }
+            else {
+                request->send(400);
+            }   
+            buf.clear(); 
     });
 
     websrv.on(PSTR("/update"), HTTP_POST, 
@@ -570,6 +589,12 @@ void loop() {
         rfm69->loop();
         if (radioapp != nullptr)
             radioapp->loop();
+    }
+
+    if (!discJson.isNull()) {
+        if ( (radioapp != nullptr) && mqtt.connected())
+            radioapp->sendDiscovery(discJson);
+        discJson.set(nullptr);
     }
 
     if (rebootFlag) {

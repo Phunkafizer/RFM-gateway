@@ -215,28 +215,34 @@ void RcPulseTransceiver::handleBody(AsyncWebServerRequest *request __attribute__
     }
 }
 
-void RcPulseTransceiver::onMqttMessage(const String topic, const String payload) {
-    if (txMode != TX_IDLE) {
-        txQue.push_back({topic, payload});
-        return;
-    }
+bool RcPulseTransceiver::onMqttMessage(const String topic, const String payload) {
     RcCodec* codec = nullptr;
 
     if (topic.substring(topic.length() - 4, -1).compareTo(F("/set")) == 0) {
+        if (txMode != TX_IDLE) {
+            txQue.push_back({topic, payload});
+            return true;
+        }
         codec = RcCodec::encode(topic, payload, pulseBuf, bufLen);
     }
     else if (topic.compareTo(F("send")) == 0) {
+        if (txMode != TX_IDLE) {
+            txQue.push_back({topic, payload});
+            return true;
+        }
         JsonDocument doc;
         if (deserializeJson(doc, payload) == DeserializationError::Ok)
             codec = RcCodec::encode(doc, pulseBuf, bufLen);
     }
     else 
-        return;
+        return false;
 
     if (codec)
         sendPulseBuf(*codec);
     else
         ws.textAll(F("encoding error!"));
+
+    return true;
 }
 
 bool RcPulseTransceiver::sendDiscovery(JsonDocument &doc) {

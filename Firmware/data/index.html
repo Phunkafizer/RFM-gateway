@@ -482,7 +482,8 @@
 
     <script>
         'use strict';
-        var websocket;
+        let websocket = null;
+
         function _(query) {
             return document.querySelector(query);
         }
@@ -885,6 +886,8 @@
                 const xhrreboot = new XMLHttpRequest();
                 xhrreboot.open("GET", "/reboot");
                 xhrreboot.send();
+                if (websocket && websocket.readyState === WebSocket.OPEN)
+                    websocket.close();
             };
 
             getConfig();
@@ -899,14 +902,13 @@
                     cons.scrollTop = cons.scrollHeight;
                 }
 
-                var websocket = new WebSocket("ws");
+                websocket = new WebSocket("ws");
+
                 websocket.onopen = (ev) => {
                     _("#logstatus").classList.add('connected');
-                    //_("#logstatus").classList.remove('disconnected');
                 }
                 websocket.onclose = (ev) => {
                     logws("close");
-                    //_("#logstatus").classList.add('disconnected');
                     _("#logstatus").classList.remove('connected');
                     setTimeout(function() {
                         connectWS();
