@@ -29,6 +29,7 @@ protected:
         uint8_t txRepeats; // number of tx tries
         uint8_t symbolTable[];
     } *params;
+    PGM_P name;
     uint16_t tbToPulses(const uint8_t tb, const uint16_t timebase) const;
     virtual uint8_t encodePulses(uint8_t *pulseBuf, const uint16_t timebase = 0);
     virtual bool encodeSymbols(String path, String payload) = 0;
@@ -44,7 +45,8 @@ protected:
     uint32_t decodeBinLSB(const uint8_t start = 0, const uint8_t len = 0);
     uint32_t decodeBinMSB(const uint8_t start = 0, const uint8_t len = 0);
     virtual bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic);
-    PGM_P name;
+    void sendMqttState(JsonDocument &doc);
+    
 public:
     static uint8_t symbolBuf[SYMBOLBUFSIZE];
     static uint8_t symbolBufLen;

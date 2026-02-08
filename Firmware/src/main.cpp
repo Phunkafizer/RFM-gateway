@@ -62,6 +62,10 @@ uint16_t leddata = 0x8000;
 
 JsonDocument discJson;
 
+String getAvailabilityTopic() {
+    return baseTopic + F("/status");
+}
+
 void ledTickcb() {
     static uint16_t mask = 0x8000;
 
@@ -207,7 +211,7 @@ void mqttCallback(const char topic[], byte* payload, unsigned int length) {
         String sPayload;
         sPayload.concat((const char*) payload, length);
         if (radioapp->onMqttMessage(sTop, sPayload))
-            ws.textAll("Rec. MQTT ~/" + sTop + ": " + sPayload);
+            ws.textAll(F("Rec. MQTT ~/") + sTop + ": " + sPayload + F("<hr>"));
     }
 }
 

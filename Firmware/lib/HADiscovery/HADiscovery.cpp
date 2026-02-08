@@ -42,6 +42,7 @@ const char HA_INITIAL[]                         PROGMEM = "initial";
 const char HA_MODE_COMMAND_TOPIC[]              PROGMEM = "mode_cmd_t";
 const char HA_OPTIMISTIC[]                      PROGMEM = "optimistic";
 const char HA_RETAIN[]                          PROGMEM = "retain";
+const char HA_EXPIRE_AFTER[]                    PROGMEM = "exp_aft";
 
 String HADiscovery::ha_prefix = "homeassistant";
 String HADiscovery::devName;
@@ -170,7 +171,11 @@ void HADiscovery::setStateClass(const String sc) {
 }
 
 void HADiscovery::setExpire(const int i) {
-    doc[F("exp_aft")] = i;
+    doc[FPSTR(HA_EXPIRE_AFTER)] = i;
+}
+
+void HADiscovery::setAvailability(const String topic) {
+    doc[FPSTR(HA_AVAILABILITY)][FPSTR(HA_TOPIC)] = topic;
 }
 
 void HADiscovery::createSensor(String name, String id) {

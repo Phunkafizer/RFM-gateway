@@ -522,6 +522,7 @@ bool Gw868::sendDiscovery(JsonDocument &doc) {
         tmpl += F(" }}");
         haDisc.setValueTemplate(tmpl);
         haDisc.setExpire(300); // expire after 5 min
+        haDisc.setAvailability(getAvailabilityTopic());
         haDisc.publish();
     };
 

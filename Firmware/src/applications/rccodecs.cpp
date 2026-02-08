@@ -53,12 +53,10 @@ bool RcCodec::decode(const uint8_t *pulseBuf, const uint8_t len) {
 
     while (codec != nullptr) {
         if (codec->decodePulses(pulseBuf, len)) {
-            if (codec->lastDecode < (millis() - 500)) {
+            if ( (codec->lastDecode < (millis() - 500)) || (memcmp(codec->localSymbolBuf, codec->symbolBuf, codec->symbolBufLen) != 0) ) {
                 codec->onDecodedPulses();
+                ws.textAll(F("<hr>"));
             }
-            else
-                if (memcmp(codec->localSymbolBuf, codec->symbolBuf, codec->symbolBufLen) != 0)
-                    codec->onDecodedPulses();
 
             memcpy(codec->localSymbolBuf, codec->symbolBuf, codec->symbolBufLen);
             codec->lastDecode = millis();
@@ -235,6 +233,7 @@ RcCodec* RcCodec::encode(String path, String payload, uint8_t *pulseBuf, uint8_t
             Serial.println("");
             #endif
             pulseBufLen = codec->encodePulses(pulseBuf);
+            ws.textAll(F("<hr>"));
             return codec;
         }
     }
@@ -249,6 +248,7 @@ RcCodec* RcCodec::encode(JsonDocument &doc, uint8_t *pulseBuf, uint8_t &pulseBuf
         if (codec->encodeSymbols(doc)) {
             uint16_t timebase = doc[FPSTR(STR_TIMEBASE)].isNull() ? codec->params->timebase : doc[FPSTR(STR_TIMEBASE)];
             pulseBufLen = codec->encodePulses(pulseBuf, timebase);
+            ws.textAll(F("<hr>"));
             return codec;
         }
     }
@@ -312,8 +312,6 @@ bool RcCodec::sendDiscovery(JsonDocument &doc) {
         String cmdTopic = topic + F("/set");
 
         return codec->sendDiscovery(haName, haId, topic, cmdTopic);
-
-        
     }
     return false;
 }
@@ -321,8 +319,23 @@ bool RcCodec::sendDiscovery(JsonDocument &doc) {
 bool RcCodec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) {
     haDisc.createSwitch(name, id, cmdTopic);
     haDisc.setStateTopic(stateTopic);
-    haDisc.setOptimistic(true);
+    haDisc.setAvailability(getAvailabilityTopic());
     return haDisc.publish();
+}
+
+void RcCodec::sendMqttState(JsonDocument &doc) {
+    if (mqtt.connected()) {
+        std::vector<JsonVariant> fields;
+        getDiscoveryFields(doc, fields);
+        String topic = baseTopic + F("/") + String(name);
+        for (auto &field : fields) {
+            topic += F("/") + field.as<String>();
+        }
+        String payload = doc[FPSTR(STR_COMMAND)];
+        
+        mqtt.publish(topic.c_str(), payload.c_str());
+        radioapp->publish("", doc); // creates discovery button in webUI
+    }
 }
 
 /**
@@ -479,6 +492,8 @@ bool ITTristate::encodeSymbols(JsonDocument &doc) {
     
     encodeBinLSB(2, 2, 2); // bit 9-10 fix 0F
     encodeBinLSB(on ? 3 : 1, 2, 2); // on = FF
+    doc[FPSTR(STR_PROTOCOL)] = String(name);
+    sendMqttState(doc);
     return true;
 }
 
@@ -579,6 +594,7 @@ bool IT32::encodeSymbols(JsonDocument &doc) {
     encodeBinMSB(0, 1); // group bit
     encodeBinMSB(on ? 1 : 0, 1);
     encodeBinMSB(channel - 1, 4);
+    sendMqttState(doc);
     return true;
 }
 
@@ -670,6 +686,7 @@ bool PilotaCasa::encodeSymbols(JsonDocument &doc) {
         if ( (cmdTable[i].group == group) && (cmdTable[i].channel == channel) && (cmdTable[i].cmd == cmd) ) {
             data |= cmdTable[i].data << 24;
             encodeBinMSB(data, 32);
+            sendMqttState(doc);
             return true;
         }
     }
@@ -746,6 +763,8 @@ bool EV1527Codec::encodeSymbols(JsonDocument &doc) {
         return false;
     encodeBinLSB(doc[FPSTR(STR_ID)], 20);
     encodeBinLSB(doc[FPSTR(STR_DATA)], 4);
+    doc[FPSTR(STR_COMMAND)] = String(STR_PRESS);
+    sendMqttState(doc);
     return true;
 }
 
@@ -766,6 +785,7 @@ void EV1527Codec::decodeSymbols(uint32_t &id, uint8_t &data) {
 bool EV1527Codec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) {
     (void) stateTopic;
     haDisc.createButton(name, id, cmdTopic);
+    haDisc.setAvailability(getAvailabilityTopic());
     return haDisc.publish();
 }
 
@@ -940,6 +960,7 @@ bool FS20Codec::encodeSymbols(JsonDocument &doc) {
     uint8_t csum = ( (house >> 8) + (house & 0xFF) + address + (cmd & 0xFF) + (cmd >> 8) + 6) & 0xFF;
     encodeByte(csum);
 
+    sendMqttState(doc);
     return true;
 }
 

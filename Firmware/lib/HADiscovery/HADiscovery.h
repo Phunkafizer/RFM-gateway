@@ -40,6 +40,7 @@ public:
     void setDeviceClass(const String dc);
     void setStateClass(const String sc);
     void setExpire(const int i);
+    void setAvailability(const String topic);
 
     void createTempSensor(String name, String id);
     void createPowerFactorSensor(String name, String id);

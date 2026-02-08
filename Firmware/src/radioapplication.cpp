@@ -19,10 +19,12 @@ void RadioApplication::publish(String topic, JsonDocument &doc) {
     serializeJson(doc, jsdata);
     ws.textAll(jsdata);
     jsdata.replace("\"", "&quot;");
-    String btn = F("<button onclick=\"sendDiscovery(this)\" data-discovery='") + jsdata + F("'>send HA discovery</button><hr>");
+    String btn = F("<button onclick=\"sendDiscovery(this)\" data-discovery='") + jsdata + F("'>send HA discovery</button></br>");
     ws.textAll(btn);
 
-    mqtt.beginPublish(topic.c_str(), measureJson(doc), false);
-    serializeJson(doc, mqtt);
-    mqtt.endPublish();
+    if (!topic.isEmpty()) {
+        mqtt.beginPublish(topic.c_str(), measureJson(doc), false);
+        serializeJson(doc, mqtt);
+        mqtt.endPublish();
+    }
 }
