@@ -56,6 +56,7 @@ def testrfm():
             s = json.dumps(data)
             print("Send config:", s)
             r = requests.post('http://4.3.2.1/config', data=s)
+            print(r.status_code, r.text)
             
         else:
             print("??:", ch)
@@ -78,7 +79,7 @@ class RFMTestApp:
         self.freqband.current(1)
         self.freqband.pack()
 
-        self.fcorr = Scale(self.root, from_=-300, to=300, orient=HORIZONTAL, length=460)
+        self.fcorr = Scale(self.root, from_=-500, to=500, orient=HORIZONTAL, length=460)
         self.fcorr.set(70)
         self.fcorr.pack()
 
@@ -87,6 +88,9 @@ class RFMTestApp:
 
         self.savebtn = ttk.Button(self.root, text="save radio setup", padding=20, command=self.saveradiosetup)
         self.savebtn.pack()
+
+        self.configbtn = ttk.Button(self.root, text="send default config", padding=20, command=self.saveconfig)
+        self.configbtn.pack()
 
         self.onbutton = ttk.Button(self.root, text="ON", command=self.sendon)
         self.onbutton.pack()
@@ -161,14 +165,18 @@ class RFMTestApp:
             "baud": 20000
         }
         s = json.dumps(data)
-        print("Send TX test:", s)
         r = requests.post('http://4.3.2.1/txtest', data=s)
+        print(f'TX test {s}: {r.status_code} {r.text}')
 
     def sendon(self):
-        requests.get('http://' + self.ip + '/send/intertechno/25221242/4/on')
+        url = 'http://' + self.ip + '/send/intertechno/25221242/4/on'
+        r = requests.get(url)
+        print(f'Send ON {url}: {r.status_code} {r.text}')
 
     def sendoff(self):
-        requests.get('http://' + self.ip + '/send/intertechno/25221242/4/off')
+        url = 'http://' + self.ip + '/send/intertechno/25221242/4/off'
+        r = requests.get(url)
+        print(f'Send OFF {url}: {r.status_code} {r.text}')
     
     def saveradiosetup(self):
         data = {
@@ -179,14 +187,60 @@ class RFMTestApp:
             }
         }
         s = json.dumps(data)
-        print("Send config:", s)
-        r = requests.post('http://' + self.ip + '/config', data=s)
+        url = 'http://' + self.ip + '/config'
+        r = requests.post(url, data=s)
+        print(f'Save radio setup {s}: {r.status_code} {r.text}')
+
+    def saveconfig(self):
+        if self.freqband.current() == 1:
+            config = {
+                "config": {
+                    "mqtt": {
+                        "host": "",
+                        "port": None,
+                        "tls": False,
+                        "user": "",
+                        "pass": "",
+                        "basetopic": ""
+                    },
+                    "application": 0,
+                    "txPwr": 13,
+                    "rxThresh": -85,
+                    "appSettings": {
+                        "codecs": [0, 1, 2, 3, 4, 5]
+                    }
+                }
+            }
+        elif self.freqband.current() == 2:
+            config = {
+                "config": {
+                    "mqtt": {
+                        "host": "",
+                        "port": None,
+                        "tls": False,
+                        "user": "",
+                        "pass": "",
+                        "basetopic": ""
+                    },
+                    "application": 1,
+                    "txPwr": 13,
+                    "rxThresh": -85,
+                    "appSettings": {
+                        "rxmodes": 3,
+                        "interval": 15
+                    }
+                }
+            }
+        
+        c = json.dumps(config)
+        url = 'http://' + self.ip + '/config'
+        r = requests.post(url, data=c)
+        print(f'Save config {c}: {r.status_code} {r.text}')
 
     def send(self, param):
         url = F"http://{self.ip}/send/{param}"
-        print(url)
-        requests.get(url)
-
+        r = requests.get(url)
+        print(f'Send {url}: {r.status_code} {r.text}')
 
 if __name__ == "__main__":
     app = RFMTestApp()

@@ -35,7 +35,7 @@ static const char FILE_CONFIG[] PROGMEM = "config.json";
 static const char APP_JSON[] PROGMEM = "application/json";
 static const char HOSTNAME[] PROGMEM = "rfm-gateway";
 static const char STR_AP_NAME[] PROGMEM = AP_NAME;
-static const char AP_PASS[] PROGMEM = "12345678";
+static const char STR_AP_PASS[] PROGMEM = AP_PASS;
 static const IPAddress apAddress(4, 3, 2, 1);
 static const IPAddress apSubnet(255, 255, 255, 0);
 static const uint16_t WEBPORT = 80;
@@ -140,18 +140,20 @@ void setConfig(const JsonObject &obj) {
             radioapp = nullptr;
         }
 
+        JsonObject appSettings = obj[F("appSettings")];
+
         switch (obj[F("application")].as<int>()) {
         case 0:
             if (rfm69 != nullptr)
-                radioapp = new Rc433Transceiver(obj[F("appSettings")].as<JsonObject>());
+                radioapp = new Rc433Transceiver(appSettings);
             break;
         case 1:
             if (rfm69 != nullptr)
-                radioapp = new Gw868(obj[F("appSettings")].as<JsonObject>());
+                radioapp = new Gw868(appSettings);
             break;
         case 2:
             if (rfm69 != nullptr)
-                radioapp = new FS20(obj[F("appSettings")].as<JsonObject>());
+                radioapp = new FS20(appSettings);
             break;
 
         default:
@@ -258,7 +260,7 @@ void setup() {
         leddata = 0xA000;
         WiFi.persistent(false);
         WiFi.softAPConfig(apAddress, apAddress, apSubnet);
-        WiFi.softAP(FPSTR(STR_AP_NAME), FPSTR(AP_PASS));
+        WiFi.softAP(FPSTR(STR_AP_NAME), FPSTR(STR_AP_PASS));
         WiFi.mode(WIFI_AP_STA);
         dnsServer.start(DNS_PORT, "*", apAddress);
         dnsServer.processNextRequest();

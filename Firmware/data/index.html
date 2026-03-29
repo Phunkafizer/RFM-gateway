@@ -406,27 +406,27 @@
                     <h3>Codecs</h3>
                     <div class="row">
                         <div class="col50">
-                            <input type="checkbox" value="0" checked><span>Intertechno tristate</span>
+                            <input type="checkbox" class="codec" value="0" checked><span>Intertechno tristate</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="1" checked><span>Brennenstuhl</span>
+                            <input type="checkbox" class="codec" value="1" checked><span>Brennenstuhl</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="2" checked><span>Intertechno 32</span>
+                            <input type="checkbox" class="codec" value="2" checked><span>Intertechno 32</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="3" checked><span>Pilota casa</span>
+                            <input type="checkbox" class="codec" value="3" checked><span>Pilota casa</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="4" checked><span>Emylo</span>
+                            <input type="checkbox" class="codec" value="4" checked><span>Emylo</span>
                         </div>
                         <div class="col50">
-                            <input type="checkbox" value="5" checked><span>EV1527</span>
+                            <input type="checkbox" class="codec" value="5" checked><span>EV1527</span>
                         </div>
                     </div>
                 </div>
 
-                <div id="gw868options" class="appsettings">
+                <div class="appsettings">
                     <div class="row">
                         <div class="col50">
                             <h3>RX modes</h3>
@@ -488,8 +488,8 @@
             return document.querySelector(query);
         }
 
-        function __(query) {
-            return document.querySelectorAll(query);
+        function __(query, root=document) {
+            return root.querySelectorAll(query);
         }
 
         function _$(elename) {
@@ -588,21 +588,32 @@
                     }
 
                     if ("application" in config) {
-                        let iApp = parseInt(config["application"]);
+                        const iApp = parseInt(config["application"]);
                         _("#selapplication").value = iApp;
                         _("#selapplication").onchange();
 
+                        const appSettings = config["appSettings"] ?? {};
+                        const divAppSettings = __(".appsettings")[iApp];
+
                         switch (iApp) {
-                        case 1:
-                            let settings = config["appSettings"];
-                            _("#gw868_interval").value = settings["interval"];
-                            let rxmodes = settings["rxmodes"];
+                        case 0: // 433 MHz RC pulse gateway
+                            const codecs = appSettings["codecs"] ?? [];
+                            for (let ele of __(".codec", divAppSettings))
+                                ele.checked = codecs.indexOf(parseInt(ele.value)) != -1;
+                            break;
+                        
+                        case 1: // 868 MHz sensor gateway
+                            _("#gw868_interval").value = appSettings["interval"];
+                            let rxmodes = appSettings["rxmodes"];
                             let i = 0;
-                            for (let ele of __("#gw868options .rxmode")) {
+                            for (let ele of __(".rxmode", divAppSettings)) {
                                 ele.checked = (rxmodes & (1<<i)) != 0;
                                 i++;
                             }
-                        break;
+                            break;
+
+                        case 2: // 868 MHz FS20 gateway
+                            break;
                         }
                     }
 
@@ -730,7 +741,7 @@
             };
 
             _("#savebtn").onclick = (ev) => {
-                let iApp = parseInt(_("#selapplication").value);
+                const iApp = parseInt(_("#selapplication").value);
                 let param = {
                     "config": {
                         "mqtt": {
@@ -743,36 +754,61 @@
                         },
                         "application": iApp,
                         "txPwr": parseInt(_("#txPwrSlider").value),
-                        "rxThresh": parseInt(_("#rxThreshSlider").value)
+                        "rxThresh": parseInt(_("#rxThreshSlider").value),
+                        "appSettings": {}
                     }
                 };
 
+                const divAppSettings = __(".appsettings")[iApp];
+
                 switch (iApp) {
-                    case 1: // 868 sensor gateway
-                        let i = 0;
-                        let rxmodes = 0;
-                        for (let ele of __("#gw868options .rxmode")) {
-                            if (ele.checked)
-                                rxmodes |= 1<<i;
-                            i++;
-                        }
-                        param["config"]["appSettings"] = {
-                            "rxmodes": rxmodes,
-                            "interval": parseInt(_("#gw868_interval").value)
-                        }
-                        break;
+                case 0: // 433 MHz RC pulse gateway
+                    let codecs = [];
+                    for (let ele of __(".codec", divAppSettings)) {
+                        if (ele.checked)
+                            codecs.push(parseInt(ele.value));
+                    }
+                    param["config"]["appSettings"] = {
+                        "codecs": codecs
+                    }
+                    break;
+
+                case 1: // 868 sensor gateway
+                    let i = 0;
+                    let rxmodes = 0;
+                    for (let ele of __(".rxmode", divAppSettings)) {
+                        if (ele.checked)
+                            rxmodes |= 1<<i;
+                        i++;
+                    }
+                    param["config"]["appSettings"] = {
+                        "rxmodes": rxmodes,
+                        "interval": parseInt(_("#gw868_interval").value)
+                    }
+                    break;
+
+                default:
+                    param["config"]["appSettings"] = {};
+                    break;
                 }
 
-                const xhrconfig = new XMLHttpRequest();
-                xhrconfig.onloadend = (ev) => {
-                    if(ev.target.status == 200)
+                fetch("/config", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json;charset=UTF-8"
+                    },
+                    body: JSON.stringify(param)
+                })
+                .then(response => {
+                    if (response.status === 200) {
                         alert("Saved successfully!");
-                    else
+                    } else {
                         alert("Saved error!");
-                };
-                xhrconfig.open("POST", "/config");
-                xhrconfig.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-                xhrconfig.send(JSON.stringify(param));
+                    }
+                })
+                .catch(() => {
+                    alert("Saved error!");
+                });
             }
 
             _("#selradiotype").onchange = (ev) => {
