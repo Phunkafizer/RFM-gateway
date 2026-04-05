@@ -23,10 +23,10 @@ void RfmHADiscovery::begin() {
 }
 
 bool RfmHADiscovery::publish(const bool avail) {
-    if (!avail)
-        haDisc.clearDoc();
+    if (mqtt.connected()) {
+        if (!avail)
+            return (mqtt.publish(topic.c_str(), "", true) != 0);
 
-    if (mqtt.connected()) {                
         mqtt.beginPublish(topic.c_str(), measureJson(doc), true);
         serializeJson(doc, mqtt);
         return (mqtt.endPublish() != 0);

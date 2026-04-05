@@ -44,7 +44,7 @@ protected:
     void encodeBinMSB(const uint32_t val, const uint8_t bits);
     uint32_t decodeBinLSB(const uint8_t start = 0, const uint8_t len = 0);
     uint32_t decodeBinMSB(const uint8_t start = 0, const uint8_t len = 0);
-    virtual bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic);
+    virtual bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic, const bool clear);
     void sendMqttState(JsonDocument &doc);
     
 public:
@@ -178,7 +178,7 @@ protected:
     bool encodeSymbols(JsonDocument &doc) override;
     void onDecodedPulses() override;
     void decodeSymbols(uint32_t &id, uint8_t &data);
-    bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) override;
+    bool sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic, const bool clear) override;
 public:
     EV1527Codec();
 };

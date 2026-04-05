@@ -546,9 +546,15 @@ void setup() {
         rebootFlag = true;
     });
 
+    websrv.on(PSTR("/tabs"), HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (radioapp != nullptr && radioapp->html != nullptr)
+            request->send_P(200, F("text/html"), radioapp->html);
+        else
+            request->send(404);
+    });
+
     websrv.onNotFound([](AsyncWebServerRequest *request) {
         request->send(404);
-        //request->redirect(F("/"));
     });
 
     mqtt.setCallback(mqttCallback);

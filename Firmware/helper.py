@@ -5,29 +5,41 @@ import time
 import webbrowser
 from serial.tools import list_ports
 import requests
-from htmlmin import minify as html_minify
-from jsmin import jsmin
-from bs4 import BeautifulSoup
-import cssmin
+import minify_html
 Import("env")
 
-def copy_html(source, target, env):
-    print("Building html.h from index.html")
-    with open(os.path.join(env["PROJECT_DATA_DIR"], "index.html"), "r") as fin:
+def copy_html(source, target, varname, env):
+    print(f"Creating {target} from {source}");
+    with open(os.path.join(env["PROJECT_DATA_DIR"], source), "r", encoding="utf-8") as fin:
         content = fin.read()
         if (env["PIOENV"] == "release"):
             print("minify html");
-            # Parse HTML and minify inline JS and CSS
-            soup = BeautifulSoup(content, 'html.parser')
-            for script in soup.find_all('script'):
-                if script.string:
-                    script.string = jsmin(script.string)
-            for style in soup.find_all('style'):
-                if style.string:
-                    style.string = cssmin.cssmin(style.string)
-            content = html_minify(str(soup), remove_comments=True, remove_empty_space=True)
-        with open(os.path.join(env["PROJECT_DIR"], "include/html.h"), "w") as fout:
-            fout.write('const char html[] PROGMEM = R"html(')
+            content = minify_html.minify(
+                content,
+                # --- JS / CSS ---
+                minify_js=True,               # minify inline <script> content
+                minify_css=True,              # minify inline <style> and style= attributes
+                minify_doctype=True,         # shorten <!DOCTYPE html> to <!doctype html>
+                # --- Attributes ---
+                keep_input_type_text_attr=True,              # keep type="text" on <input> (default is removed as redundant)
+                allow_noncompliant_unquoted_attribute_values=False,  # allow unquoted attribute values (faster, but non-standard)
+                allow_removing_spaces_between_attributes=False,      # remove spaces between attributes (non-standard)
+                # --- Tags ---
+                keep_closing_tags=False,                # keep optional closing tags e.g. </li>, </td>
+                keep_html_and_head_opening_tags=False,  # keep <html> and <head> opening tags (removed when optional)
+                # --- Comments ---
+                keep_comments=False,          # keep regular HTML comments
+                keep_ssi_comments=False,      # keep SSI comments <!--# ... -->
+                remove_bangs=False,           # remove <!...> declarations (e.g. <!DOCTYPE>)
+                remove_processing_instructions=False,  # remove <?...?> processing instructions
+                # --- Entities ---
+                allow_optimal_entities=False, # use shortest entity representation (may change semantics in edge cases)
+                # --- Template syntax preservation ---
+                preserve_brace_template_syntax=False,          # preserve {{ }}, {% %}, {# #} (Jinja, Handlebars, etc.)
+                preserve_chevron_percent_template_syntax=False, # preserve <% %> (EJS, ERB, JSP, etc.)
+            )
+        with open(os.path.join(env["PROJECT_DIR"], "include", target), "w", encoding="utf-8") as fout:
+            fout.write(f'const char {varname}[] PROGMEM = R"html(')
             fout.write(content)
             fout.write('\n)html";')
     
@@ -57,4 +69,5 @@ env.AddPostAction("buildprog", post_build)
 env.AddPreAction("upload", before_upload)
 env.AddPostAction("upload", after_upload)
 
-copy_html(None, None, env)
+copy_html("index.html", "html.h", "html", env)
+copy_html("rc433.html", "rc433html.h", "rc433html", env)

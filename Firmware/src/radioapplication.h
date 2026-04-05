@@ -11,6 +11,7 @@ public:
     virtual bool onMqttMessage(String topic, String payload);
     virtual bool sendDiscovery(JsonDocument &doc) = 0;
     void publish(String topic, JsonDocument &doc);
+    PGM_P html {nullptr};
 };
 
 extern RadioApplication *radioapp;

@@ -311,16 +311,18 @@ bool RcCodec::sendDiscovery(JsonDocument &doc) {
 
         String cmdTopic = topic + F("/set");
 
-        return codec->sendDiscovery(haName, haId, topic, cmdTopic);
+        bool clear = doc[F("clear")] | false;
+
+        return codec->sendDiscovery(haName, haId, topic, cmdTopic, clear);
     }
     return false;
 }
 
-bool RcCodec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) {
+bool RcCodec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic, const bool clear) {
     haDisc.createSwitch(name, id, cmdTopic);
     haDisc.setStateTopic(stateTopic);
     haDisc.setAvailability(getAvailabilityTopic());
-    return haDisc.publish();
+    return haDisc.publish(!clear);
 }
 
 void RcCodec::sendMqttState(JsonDocument &doc) {
@@ -782,11 +784,11 @@ void EV1527Codec::decodeSymbols(uint32_t &id, uint8_t &data) {
     }
 }
 
-bool EV1527Codec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic) {
+bool EV1527Codec::sendDiscovery(String &name, String &id, String &stateTopic, String &cmdTopic, const bool clear) {
     (void) stateTopic;
     haDisc.createButton(name, id, cmdTopic);
     haDisc.setAvailability(getAvailabilityTopic());
-    return haDisc.publish();
+    return haDisc.publish(!clear);
 }
 
 void EV1527Codec::getDiscoveryFields(JsonDocument &doc, std::vector<JsonVariant> &fields) {

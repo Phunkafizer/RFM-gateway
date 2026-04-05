@@ -1,3 +1,5 @@
+/__pycache
+
 *.000
 *.bak
 *.bck
@@ -26,3 +28,4 @@ fp-info-cache
 
 # this file is generated automatically on build
 Firmware/include/html.h
+Firmware/include/rc433html.h

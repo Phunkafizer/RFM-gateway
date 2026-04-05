@@ -39,6 +39,9 @@
         }
 
         .btnbar {
+            display: flex;
+            justify-content: center;
+            gap: 0.5em;
             padding: 0.5em 0;
         }
 
@@ -181,12 +184,9 @@
         <h1>RFM gateway</h1>
 
         <div id="navi">
-            <button class="navi-item" target="tab-status">status</button>
-            <button class="navi-item" target="tab-settings">settings</button>
-            <button class="navi-item" target="tab-log">log</button>
         </div>
 
-        <div id="tab-status" class="tab">
+        <div id="tab-status" class="tab" title="status">
             <div class="panel">
                 <h2>WiFi</h2>
                 <div class="row">
@@ -242,7 +242,7 @@
             </div>
         </div>
 
-        <div id="tab-settings" class="tab">
+        <div id="tab-settings" class="tab" title="settings">
             <fieldset id="radiosetup" hidden>
                 <legend>radio setup</legend>
 
@@ -467,7 +467,7 @@
             </div>
         </div>
 
-        <div id="tab-log" class="tab">
+        <div id="tab-log" class="tab" title="log">
             <div id="console"></div>
             <div id="logstatus"></div>
             <div class="btnbar">
@@ -703,18 +703,54 @@
             xhr.send(JSON.stringify(discoveryData));
         }
 
-        window.onload = (ev) => {
-            for (let ele of __("button.navi-item")) {
-                ele.onclick = (ev) => {
-                    for (let tab of __("div.tab"))
-                        tab.style.display = "none";
+        function buildNavi() {
+            const navi = _("#navi");
+            navi.innerHTML = "";
+            for (let tab of __("div.tab", _("#wrapper"))) {
+                const tabId = tab.getAttribute("id");
+                const tabTitle = tab.getAttribute("title");
+                if (!tabId || !tabTitle) continue;
+                const btn = _$("button");
+                btn.className = "navi-item";
+                btn.setAttribute("target", tabId);
+                btn.textContent = tabTitle;
+                btn.onclick = (ev) => {
+                    for (let t of __("div.tab"))
+                        t.style.display = "none";
                     _("#" + ev.target.getAttribute("target")).style.display = "block";
-                    
-                    for (let btn of __("button.navi-item"))
-                        btn.classList.remove("active");
+                    for (let b of __("button.navi-item"))
+                        b.classList.remove("active");
                     ev.target.classList.add("active");
-                }
+                };
+                navi.appendChild(btn);
             }
+            __("button.navi-item")[0]?.click();
+        }
+
+        window.onload = (ev) => {
+            fetch("/tabs")
+                .then(r => r.text())
+                .then(html => {
+                    const tmp = _$("template");
+                    tmp.innerHTML = html;
+                    const footer = _("#footer");
+                    const wrapper = _("#wrapper");
+                    // Collect scripts BEFORE moving nodes (handles both siblings and nested scripts)
+                    const scripts = [...tmp.content.querySelectorAll("script")].map(s => ({
+                        src: s.getAttribute("src") || "",
+                        code: s.textContent
+                    }));
+                    for (let node of tmp.content.querySelectorAll("div.tab"))
+                        wrapper.insertBefore(node, footer);
+                    for (let info of scripts) {
+                        const s = _$("script");
+                        if (info.src) s.src = info.src;
+                        else s.textContent = info.code;
+                        document.head.appendChild(s);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => { buildNavi(); });
 
             _("#btnscan").onclick = (ev) => {
                 _("#scanbody").innerHTML = "";
@@ -898,8 +934,6 @@
                 var file = ev.target.files[0];
                 _("#btn_upload").disabled = !(file && file.name);
             };
-
-            _(".navi-item").click();
 
             _("#selapplication").onchange = (ev) => {
                 let selindex = parseInt(_("#selapplication").value);

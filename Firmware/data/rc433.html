@@ -1,0 +1,217 @@
+<div id="rc433_tab" class="tab" title="send signal">
+    <h3>protocol</h3>
+    <select id="rc433_protocol" onchange="rc433ShowParams()">
+        <option value="ittristate">Intertechno tristate</option>
+        <option value="2">Brennenstuhl</option>
+        <option value="intertechno">Intertechno 32</option>
+        <option value="pilota">Pilota casa</option>
+        <option value="emylo">Emylo</option>
+        <option value="EV1527">EV1527</option>
+    </select>
+
+    <!-- Intertechno tristate: house A-P, optional group 1-4, channel 1-4, ON/OFF -->
+    <div id="rc433_params_ittristate" class="rc433_params">
+        <div>
+            <h3>house (A–P)</h3>
+            <select id="ittristate_house">
+                <option>A</option><option>B</option><option>C</option><option>D</option>
+                <option>E</option><option>F</option><option>G</option><option>H</option>
+                <option>I</option><option>J</option><option>K</option><option>L</option>
+                <option>M</option><option>N</option><option>O</option><option>P</option>
+            </select>
+        </div>
+        <div>
+            <h3>group (1–4, 0 = all)</h3>
+            <select id="ittristate_group">
+                <option value="0">all</option>
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+            </select>
+        </div>
+        <div>
+            <h3>channel (1–4, 0 = all)</h3>
+            <select id="ittristate_channel">
+                <option value="0">all</option>
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+            </select>
+        </div>
+        <div>
+            <h3>command</h3>
+            <select id="ittristate_command">
+                <option value="ON">ON</option>
+                <option value="OFF">OFF</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Brennenstuhl: not yet implemented -->
+    <div id="rc433_params_2" class="rc433_params">
+        <div><em>Brennenstuhl not yet supported.</em></div>
+    </div>
+
+    <!-- Intertechno 32: id (number), channel 1-16, ON/OFF -->
+    <div id="rc433_params_intertechno" class="rc433_params">
+        <div>
+            <h3>ID</h3>
+            <input type="text" id="intertechno_id" placeholder="e.g. 12345678">
+        </div>
+        <div>
+            <h3>channel (1–16)</h3>
+            <select id="intertechno_channel">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+                <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+                <option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                <option value="16">16</option>
+            </select>
+        </div>
+        <div>
+            <h3>command</h3>
+            <select id="intertechno_command">
+                <option value="ON">ON</option>
+                <option value="OFF">OFF</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Pilota casa: id, group 1-4, channel 1-3, ON/OFF -->
+    <div id="rc433_params_pilota" class="rc433_params">
+        <div>
+            <h3>ID</h3>
+            <input type="text" id="pilota_id" placeholder="e.g. 1">
+        </div>
+        <div>
+            <h3>group (1–4)</h3>
+            <select id="pilota_group">
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+            </select>
+        </div>
+        <div>
+            <h3>channel (1–3)</h3>
+            <select id="pilota_channel">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            </select>
+        </div>
+        <div>
+            <h3>command</h3>
+            <select id="pilota_command">
+                <option value="ON">ON</option>
+                <option value="OFF">OFF</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Emylo: id (20-bit), key A-D -->
+    <div id="rc433_params_emylo" class="rc433_params">
+        <div>
+            <h3>ID (0–1048575)</h3>
+            <input type="text" id="emylo_id" placeholder="e.g. 123456">
+        </div>
+        <div>
+            <h3>key</h3>
+            <select id="emylo_key">
+                <option value="A">A</option><option value="B">B</option>
+                <option value="C">C</option><option value="D">D</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- EV1527: id (20-bit), data (0-15) -->
+    <div id="rc433_params_EV1527" class="rc433_params">
+        <div>
+            <h3>ID (0–1048575)</h3>
+            <input type="text" id="ev1527_id" placeholder="e.g. 123456">
+        </div>
+        <div>
+            <h3>data (0–15)</h3>
+            <input type="text" id="ev1527_data" placeholder="e.g. 8">
+        </div>
+    </div>
+
+    <div class="btnbar">
+        <button onclick="rc433Send()">send</button>
+        <button onclick="rc433SendDiscovery(false)">send HA discovery</button>
+        <button onclick="rc433SendDiscovery(true)">clear HA discovery</button>
+    </div>
+</div>
+
+<script>
+    function rc433ShowParams() {
+        var proto = _("#rc433_protocol").value;
+        var divs = document.querySelectorAll(".rc433_params");
+        for (var i = 0; i < divs.length; i++)
+            divs[i].style.display = "none";
+        var target = _("#rc433_params_" + proto);
+        if (target) target.style.display = "block";
+    }
+
+    function getPayload() {
+        var proto = _("#rc433_protocol").value;
+        var doc = { protocol: proto };
+        switch (proto) {
+        case "ittristate":
+            doc.house   = _("#ittristate_house").value;
+            doc.command = _("#ittristate_command").value;
+            var group   = parseInt(_("#ittristate_group").value);
+            var channel = parseInt(_("#ittristate_channel").value);
+            if (group   > 0) doc.group   = group;
+            if (channel > 0) doc.channel = channel;
+            break;
+        case "intertechno":
+            doc.id      = parseInt(_("#intertechno_id").value);
+            doc.channel = parseInt(_("#intertechno_channel").value);
+            doc.command = _("#intertechno_command").value;
+            break;
+        case "pilota":
+            doc.id      = parseInt(_("#pilota_id").value);
+            doc.group   = parseInt(_("#pilota_group").value);
+            doc.channel = parseInt(_("#pilota_channel").value);
+            doc.command = _("#pilota_command").value;
+            break;
+        case "emylo":
+            doc.id  = parseInt(_("#emylo_id").value);
+            doc.key = _("#emylo_key").value;
+            break;
+        case "EV1527":
+            doc.id   = parseInt(_("#ev1527_id").value);
+            doc.data = parseInt(_("#ev1527_data").value);
+            break;
+        default:
+            return;
+        }
+        return doc;
+    }
+
+    function rc433Send() {
+        var doc = getPayload();
+        if (!doc) 
+            return;
+        fetch("/send/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(doc)
+        }).then(function(r) {
+            alert(r.ok ? "sent" : "error " + r.status);
+        });
+    }
+
+    function rc433SendDiscovery(clear) {
+        let doc = getPayload();
+        if (!doc)
+            return;
+        if (clear)
+            doc.clear = true;
+        fetch("/senddisc", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(doc)
+        }).then(function(r) {
+            alert(r.ok ? "sent discovery" : "error " + r.status);
+        });
+    }
+
+    rc433ShowParams();
+</script>

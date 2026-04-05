@@ -1,9 +1,11 @@
 #include "rc433.h"
 #include "rccodecs.h"
+#include "rc433html.h"
 
 Rc433Transceiver::Rc433Transceiver(const JsonObject &conf):
         RcPulseTransceiver(433920000UL) {
 
+    html = rc433html;
     
     if (!conf[F("codecs")].is<JsonArray>()) {
         new ITTristate;
