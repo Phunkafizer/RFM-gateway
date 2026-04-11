@@ -170,6 +170,8 @@ void setConfig(const JsonObject &obj) {
             uint32_t freq = obj[F("rffreq")].as<float>() * 1e6;
             rfm69->setFreq(freq);
         }
+        if (radioapp != nullptr)
+            radioapp->restartReceive();
     }
 }
 

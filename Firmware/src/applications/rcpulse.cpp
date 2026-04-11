@@ -27,6 +27,10 @@ RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq):
     rfm69->startReceive(0);
 }
 
+void RcPulseTransceiver::restartReceive() {
+    rfm69->startReceive(0);
+}
+
 void RcPulseTransceiver::loop() {
     if (txMode > TX_IDLE) {
         while (rfm69->getFifoLevel() < Rfm69::FIFO_FULL) {
