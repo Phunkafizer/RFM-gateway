@@ -29,23 +29,40 @@ jobs:
         run: |
           VERSION=$(grep -m1 'custom_version' Firmware/platformio.ini | sed 's/.*=\s*//' | tr -d '[:space:]')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          git fetch --tags
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abort if tag exists
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "Tag ${{ steps.version.outputs.tag }} already exists. Bump custom_version in platformio.ini to create a new release."
+          exit 1
 
       - name: Build release firmware
         run: pio run -e release --project-dir Firmware
 
-      - name: Create tag
+      - name: Create and push tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-          git tag -f "${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}" --force
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
           files: |
             Firmware/.pio/build/release/firmware.bin
         env:
