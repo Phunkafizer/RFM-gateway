@@ -171,6 +171,34 @@
         #logstatus.connected {
             background-color: green;
         }
+
+        #toast {
+            position: fixed;
+            bottom: 2em;
+            left: 50%;
+            transform: translateX(-50%) scale(0.85);
+            background: #1a73e8;
+            color: #fff;
+            padding: 0.75em 1.8em;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 0.03em;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+
+        #toast.error {
+            background: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -477,8 +505,6 @@
             <div class="btnbar">
                 <button id="savebtn">save</button>
                 <button id="rebootbtn">reboot</button>
-            </div>
-            <div class="btnbar">
                 <button id="btnimport">import</button>
                 <input id="inp_import" type="file" accept=".json" hidden>
                 <button id="btnexport">export</button>
@@ -501,6 +527,7 @@
         <div id="footer">
             <span>2026 <a href="https://www.seegel-systeme.de">www.seegel-systeme.de</a></span>
         </div>
+        <div id="toast"></div>
     </div>
 
     <script>
@@ -517,6 +544,17 @@
 
         function _$(elename) {
             return document.createElement(elename);
+        }
+
+        function showToast(msg, error = false) {
+            const t = _("#toast");
+            t.textContent = msg;
+            t.classList.toggle("error", error);
+            t.classList.remove("show");
+            void t.offsetWidth; // force reflow to restart animation
+            t.classList.add("show");
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove("show"), 2500);
         }
 
         function scanWifi() {
@@ -795,7 +833,7 @@
                 const xhr = new XMLHttpRequest();
                 xhr.onload = (ev) => {
                     _("#scanresults").hidden = true;
-                    alert("WiFi credentials saved.");
+                    showToast("WiFi credentials saved.");
                 };
                 
                 xhr.open("POST", "setwifi");
@@ -871,13 +909,13 @@
                 })
                 .then(response => {
                     if (response.status === 200) {
-                        alert("Saved successfully!");
+                        showToast("Saved successfully!");
                     } else {
-                        alert("Saved error!");
+                        showToast("Save error!", true);
                     }
                 })
                 .catch(() => {
-                    alert("Saved error!");
+                    showToast("Save error!", true);
                 });
             }
 
@@ -996,6 +1034,7 @@
                 xhrreboot.send();
                 if (websocket && websocket.readyState === WebSocket.OPEN)
                     websocket.close();
+                showToast("Rebooting...");
             };
 
             _("#btnimport").onclick = () => _("#inp_import").click();
@@ -1068,7 +1107,6 @@
                     _("#logstatus").classList.add('connected');
                 }
                 websocket.onclose = (ev) => {
-                    logws("close");
                     _("#logstatus").classList.remove('connected');
                     setTimeout(function() {
                         connectWS();
