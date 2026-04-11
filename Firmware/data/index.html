@@ -86,7 +86,6 @@
         }
 
         div.tab {
-            display: none;
             padding: 1em;
         }
 
@@ -138,7 +137,6 @@
 
         #footer {
             background-color: #00274f;
-            color: #bab8d5;
             margin: 0;
             color: white;
             height: 2em;
@@ -173,10 +171,6 @@
         #logstatus.connected {
             background-color: green;
         }
-
-        .appsettings {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -186,7 +180,7 @@
         <div id="navi">
         </div>
 
-        <div id="tab-status" class="tab" title="status">
+        <div id="tab-status" class="tab" title="status" hidden>
             <div class="panel">
                 <h2>WiFi</h2>
                 <div class="row">
@@ -242,7 +236,7 @@
             </div>
         </div>
 
-        <div id="tab-settings" class="tab" title="settings">
+        <div id="tab-settings" class="tab" title="settings" hidden>
             <fieldset id="radiosetup" hidden>
                 <legend>radio setup</legend>
 
@@ -276,7 +270,7 @@
                 </div>
                 <div>
                     <h3>frequency / Hz</h3>
-                    <input id="inpfreq" type="text" placeholder="868300000">
+                    <input id="inpfreq" type="text">
                 </div>
                 <div>
                     <h3>tx power / dBm</h3>
@@ -370,7 +364,7 @@
                     <form id="form_upload" method='POST' enctype='multipart/form-data'>
                         <input id="inp_file" type='file' accept='.bin,.bin.gz' name='firmware'>
                         <input id="btn_upload" type='submit' value='Update Firmware' disabled>
-                        <div id="progressDiv" class="progress">
+                        <div id="progressDiv" class="progress" hidden>
                             <span class="progress-bar" id="progressBar" style="width: 0%"></span>
                             <span id="progressText"></span>
                         </div>
@@ -381,28 +375,34 @@
             <fieldset>
                 <legend>radio</legend>
 
-                <div>
-                    <h3>application</h3>
-                    <select id="selapplication">
-                        <option id="app_433_rcpulse" disabled value="0">433 MHz RC pulse gateway</option>
-                        <option id="app_868gw" disabled value="1">868 MHz sensor gateway</option>
-                        <option id="app_868_fs20" disabled value="2">868 MHz FS20 gateway</option>
-                    </select>
+                <div class="row">
+                    <div class="col50">
+                        <h3>application</h3>
+                        <select id="selapplication">
+                            <option id="app_433_rcpulse" disabled value="0">433 MHz RC pulse gateway</option>
+                            <option id="app_868gw" disabled value="1">868 MHz sensor gateway</option>
+                            <option id="app_868_fs20" disabled value="2">868 MHz FS20 gateway</option>
+                        </select>
+                    </div>
+                    <div class="col50">
+                        <h3>Frequency / MHz</h3>
+                        <input id="rffreq" type="text" placeholder="868.300000">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col50">
+                        <h3>Output power</h3>
+                        <input type="range" min="-18" max="13" value="13" class="slider" id="txPwrSlider">
+                        <div><span id="txPwr">13 dBm</span></div>
+                    </div>
+                    <div class="col50">
+                        <h3>RX threshold</h3>
+                        <input type="range" min="-90" max="-40" value="-70" class="slider" id="rxThreshSlider">
+                        <div><span id="rxThresh">-70 dBm</span></div>
+                    </div>
                 </div>
 
-                <div>
-                    <h3>Output power</h3>
-                    <input type="range" min="-18" max="13" value="13" class="slider" id="txPwrSlider">
-                    <div><span id="txPwr">13 dBm</span></div>
-                </div>
-
-                <div>
-                    <h3>RX threshold</h3>
-                    <input type="range" min="-90" max="-40" value="-70" class="slider" id="rxThreshSlider">
-                    <div><span id="rxThresh">-70 dBm</span></div>
-                </div>
-
-                <div class="appsettings">
+                <div class="appsettings" hidden>
                     <h3>Codecs</h3>
                     <div class="row">
                         <div class="col50">
@@ -426,7 +426,7 @@
                     </div>
                 </div>
 
-                <div class="appsettings">
+                <div class="appsettings" hidden>
                     <div class="row">
                         <div class="col50">
                             <h3>RX modes</h3>
@@ -448,6 +448,9 @@
                             <div>
                                 <input class="rxmode" type="checkbox"><span>EMT7170</span>
                             </div>
+                            <div>
+                                <input class="rxmode" id="gw868_custom" type="checkbox" onchange="document.getElementById('gw868_custom_row').hidden=!this.checked"><span>Custom</span>
+                            </div>
                         </div>
 
                         <div class="col50">
@@ -455,9 +458,19 @@
                             <input id="gw868_interval" type="text">
                         </div>
                     </div>
+                    <div class="row" id="gw868_custom_row" hidden>
+                        <div class="col50">
+                            <h3>Preamble (hex bytes)</h3>
+                            <input id="gw868_preamble" type="text" placeholder="2D D4">
+                        </div>
+                        <div class="col50">
+                            <h3>Baudrate</h3>
+                            <input id="gw868_baudrate" type="text" placeholder="9579">
+                        </div>
+                    </div>
                 </div>
 
-                <div class="appsettings">
+                <div class="appsettings" hidden>
                 </div>
             </fieldset>
 
@@ -465,9 +478,19 @@
                 <button id="savebtn">save</button>
                 <button id="rebootbtn">reboot</button>
             </div>
+            <div class="btnbar">
+                <button id="btnimport">import</button>
+                <input id="inp_import" type="file" accept=".json" hidden>
+                <button id="btnexport">export</button>
+                <select id="selexport">
+                    <option value="config">config</option>
+                    <option value="status">status</option>
+                    <option value="log">log</option>
+                </select>
+            </div>
         </div>
 
-        <div id="tab-log" class="tab" title="log">
+        <div id="tab-log" class="tab" title="log" hidden>
             <div id="console"></div>
             <div id="logstatus"></div>
             <div class="btnbar">
@@ -574,7 +597,7 @@
                     }
                 }
                 else
-                    _("#radiosetup").style.display = "block";
+                    _("#radiosetup").hidden = false;
 
                 if ("config" in cfg) {
                     let config = cfg["config"];
@@ -582,6 +605,7 @@
                         let mqtt = config["mqtt"];
                         _("#mqtt_host").value = mqtt["host"];
                         _("#mqtt_port").value = mqtt["port"];
+                        _("#mqtt_tls").checked = mqtt["tls"] ?? false;
                         _("#mqtt_user").value = mqtt["user"];
                         _("#mqtt_pass").value = mqtt["pass"];
                         _("#mqtt_basetopic").value = mqtt["basetopic"];
@@ -604,12 +628,15 @@
                         
                         case 1: // 868 MHz sensor gateway
                             _("#gw868_interval").value = appSettings["interval"];
-                            let rxmodes = appSettings["rxmodes"];
+                            const rxmodes = appSettings["rxmodes"] ?? [];
                             let i = 0;
                             for (let ele of __(".rxmode", divAppSettings)) {
-                                ele.checked = (rxmodes & (1<<i)) != 0;
+                                ele.checked = rxmodes.includes(i);
                                 i++;
                             }
+                            _("#gw868_preamble").value = appSettings["preamble"] ?? "";
+                            _("#gw868_baudrate").value = appSettings["baudrate"] ?? "";
+                            _("#gw868_custom_row").hidden = !_("#gw868_custom").checked;
                             break;
 
                         case 2: // 868 MHz FS20 gateway
@@ -622,6 +649,8 @@
 
                     _("#rxThreshSlider").value = parseInt(config["rxThresh"]);
                     _("#rxThreshSlider").dispatchEvent(new CustomEvent('input'));
+
+                    _("#rffreq").value = config["rffreq"] ?? "";
                 }
             }
             xhr.open("GET", "config");
@@ -716,8 +745,8 @@
                 btn.textContent = tabTitle;
                 btn.onclick = (ev) => {
                     for (let t of __("div.tab"))
-                        t.style.display = "none";
-                    _("#" + ev.target.getAttribute("target")).style.display = "block";
+                        t.hidden = true;
+                    _("#" + ev.target.getAttribute("target")).hidden = false;
                     for (let b of __("button.navi-item"))
                         b.classList.remove("active");
                     ev.target.classList.add("active");
@@ -755,7 +784,7 @@
             _("#btnscan").onclick = (ev) => {
                 _("#scanbody").innerHTML = "";
                 _("#wifipassword").value = "";
-                _("#scanresults").style.display = "block";
+                _("#scanresults").hidden = false;
                 _("#btnscan").disabled = true;
                 scanWifi();
             }
@@ -765,7 +794,7 @@
                 
                 const xhr = new XMLHttpRequest();
                 xhr.onload = (ev) => {
-                    _("#scanresults").style.display = "none";
+                    _("#scanresults").hidden = true;
                     alert("WiFi credentials saved.");
                 };
                 
@@ -795,6 +824,9 @@
                     }
                 };
 
+                if (_("#rffreq").value != "")
+                    param["config"]["rffreq"] = parseFloat(_("#rffreq").value);
+
                 const divAppSettings = __(".appsettings")[iApp];
 
                 switch (iApp) {
@@ -811,15 +843,17 @@
 
                 case 1: // 868 sensor gateway
                     let i = 0;
-                    let rxmodes = 0;
+                    let rxmodes = [];
                     for (let ele of __(".rxmode", divAppSettings)) {
                         if (ele.checked)
-                            rxmodes |= 1<<i;
+                            rxmodes.push(i);
                         i++;
                     }
                     param["config"]["appSettings"] = {
                         "rxmodes": rxmodes,
-                        "interval": parseInt(_("#gw868_interval").value)
+                        "interval": parseInt(_("#gw868_interval").value),
+                        "preamble": _("#gw868_preamble").value,
+                        "baudrate": parseInt(_("#gw868_baudrate").value) || 0
                     }
                     break;
 
@@ -903,7 +937,7 @@
                 const ajaxUpl = new XMLHttpRequest();
 
                 ajaxUpl.onloadstart = (ev) => {
-                    _("#progressDiv").style.display = "block";
+                    _("#progressDiv").hidden = false;
                     _("#btn_upload").disabled = true;
                     _("#inp_file").disabled = true;
                     _("#progressText").innerHTML = "Uploading...";
@@ -937,11 +971,15 @@
 
             _("#selapplication").onchange = (ev) => {
                 let selindex = parseInt(_("#selapplication").value);
-                
-                for (let ele of __(".appsettings"))
-                    ele.style.display = "none";
+                if (isNaN(selindex)) return;
 
-                __(".appsettings")[selindex].style.display = "block";
+                for (let ele of __(".appsettings"))
+                    ele.hidden = true;
+
+                __(".appsettings")[selindex].hidden = false;
+
+                const freqPlaceholders = ["433.920", "868.300", "868.350"];
+                _("#rffreq").placeholder = freqPlaceholders[selindex] ?? "";
             }
 
             _("#txPwrSlider").oninput = (ev) => {
@@ -958,6 +996,58 @@
                 xhrreboot.send();
                 if (websocket && websocket.readyState === WebSocket.OPEN)
                     websocket.close();
+            };
+
+            _("#btnimport").onclick = () => _("#inp_import").click();
+
+            _("#inp_import").onchange = (ev) => {
+                const file = ev.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(e.target.result);
+                    } catch {
+                        alert("Invalid JSON file.");
+                        return;
+                    }
+                    fetch("/config", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json;charset=UTF-8" },
+                        body: JSON.stringify(parsed)
+                    }).then(r => {
+                        if (r.ok) { alert("Config imported successfully!"); getConfig(); }
+                        else alert("Import failed!");
+                    }).catch(() => alert("Import failed!"));
+                };
+                reader.readAsText(file);
+                ev.target.value = "";
+            };
+
+            _("#btnexport").onclick = () => {
+                const target = _("#selexport").value;
+                if (target === "log") {
+                    const lines = [...__("div", _("#console"))].map(d => d.innerText).join("\n");
+                    const blob = new Blob([lines], { type: "text/plain" });
+                    const a = _$("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "log.txt";
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                } else {
+                    fetch("/" + target)
+                        .then(r => r.json())
+                        .then(data => {
+                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                            const a = _$("a");
+                            a.href = URL.createObjectURL(blob);
+                            a.download = target + ".json";
+                            a.click();
+                            URL.revokeObjectURL(a.href);
+                        })
+                        .catch(() => alert("Export failed!"));
+                }
             };
 
             getConfig();

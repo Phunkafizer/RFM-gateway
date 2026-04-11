@@ -3,6 +3,9 @@
 *.000
 *.bak
 *.bck
+*.stp
+*.step
+*.STEP
 *.kicad_pcb-bak
 *.kicad_sch-bak
 *-backups

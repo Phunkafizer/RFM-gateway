@@ -7,7 +7,8 @@ enum Gw868RxModes: uint8_t {
     RXMODE_TX22,        // TX22, 8842 bit/s
     RXMODE_EC3K,        // voltcraft energycount
     RXMODE_BRESSER,     // Bresser 7-in-1
-    RXMODE_EMT7170      // EMT 7110, 9579 bit/s
+    RXMODE_EMT7170,     // EMT 7110, 9579 bit/s
+    RXMODE_CUSTOM       // custom baudrate/preamble
 };
 
 static const struct {
@@ -22,7 +23,8 @@ static const struct {
     {RXMODE_TX22,       8842, {0x2D, 0xD4}, 2, 5},
     {RXMODE_EC3K,       20000, {0x13, 0xF1, 0x85, 0xD3, 0xAC}, 5, 60},
     {RXMODE_BRESSER,    8000, {0x2D, 0xD4}, 2, 25},
-    {RXMODE_EMT7170,    9579, {0x2D, 0xD4}, 2, 12}
+    {RXMODE_EMT7170,    9579, {0x2D, 0xD4}, 2, 12},
+    {RXMODE_CUSTOM,     9579, {0x2D, 0xD4}, 2, 5}
 };
 
 static const char STR_T[] PROGMEM = "T";
@@ -411,7 +413,9 @@ uint16_t Bresser7in1Decoder::lfsr_digest16(const uint8_t *buf, const size_t len,
 
 Gw868::Gw868(const JsonObject &conf):
         currentRxMode(-1),
-        nextSwitch(0) {
+        nextSwitch(0),
+        customBaudrate(9579),
+        customSyncLen(0) {
     rfm69->setFreq(868300000UL);
 
     Rfm69::Rfm69Config cfg[] = {
@@ -422,42 +426,86 @@ Gw868::Gw868(const JsonObject &conf):
     };
     rfm69->writeConfig(cfg, sizeof(cfg) / sizeof(cfg[0]));
 
-    rxModes = conf[F("rxmodes")];
+    rxModes = 0;
+    if (conf[F("rxmodes")].is<JsonArray>()) {
+        for (JsonVariant v : conf[F("rxmodes")].as<JsonArray>())
+            rxModes |= 1 << v.as<uint8_t>();
+    } else
+        rxModes = conf[F("rxmodes")] | 0; // legacy bitmask format
+
     interval = (conf[F("interval")] | 10) * 1000UL;
+
+    customBaudrate = conf[F("baudrate")] | 9579;
+
+    // Parse sync hex string (e.g. "2D D4") into customSync bytes
+    String syncStr = conf[F("preamble")] | "";
+    while (true) {
+        int spaceIdx = syncStr.indexOf(' ');
+        if (spaceIdx < 0)
+            break;
+        syncStr.remove(spaceIdx, 1);
+    }
+    if (syncStr.length() % 2 != 0)
+        syncStr = '0' + syncStr; // pad with leading zero if odd length
+
+    customSyncLen = 0;
+    while (!syncStr.isEmpty()) {
+        auto hexVal = [](char c) -> uint8_t {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return 0;
+        };
+        customSync[customSyncLen++] = hexVal(syncStr.charAt(0)) << 4 | hexVal(syncStr.charAt(1));
+        syncStr = syncStr.substring(2);
+    }
 }
 
 void Gw868::loop() {
     if ((millis() >= nextSwitch)) {
         nextSwitch = millis() + interval;
 
-        currentRxMode++;
         while (true) {
+            currentRxMode++;
+            if (currentRxMode >= (sizeof(MODETAB) / sizeof(MODETAB[0])))
+                currentRxMode = 0;
+
+            if (rxModes == 0)
+                break; // no modes configured, avoid infinite loop
+
             if ( (rxModes & (1<<currentRxMode)) != 0) {
                 if ( (currentRxMode != RXMODE_EMT7170) || ((rxModes & (1<<RXMODE_TX35)) == 0) )
                     break;
             }
-
-            currentRxMode++;
-            if (currentRxMode >= (sizeof(MODETAB) / sizeof(MODETAB[0])))
-                currentRxMode = 0;
         }
 
         auto mode = &MODETAB[currentRxMode];
+        auto bitrate = mode->bitrate;
+        auto synclen = mode->syncLen;
+        auto sync = mode->sync;
+        currentRxLen = mode->rxLen;
+        if ( (currentRxMode == RXMODE_TX35) && ((rxModes & (1<<RXMODE_EMT7170)) != 0) )
+            currentRxLen = 12;
+
+        if (currentRxMode == RXMODE_CUSTOM) {
+            bitrate = customBaudrate;
+            synclen = customSyncLen;
+            sync = customSync;
+            currentRxLen = 30;
+        }
+
+        rfm69->setBitrate(bitrate);
+        rfm69->setSync(sync, synclen);
+
         String line;
         line = F("Switch to mode ");
         line += String(currentRxMode);
         line += F(", ");
-        line += String(mode->bitrate);
+        line += String(bitrate);
         line += F(" bit/s, synclen ");
-        line += String(mode->syncLen);
+        line += String(synclen);
         ws.textAll(line);
 
-        rfm69->setBitrate(mode->bitrate);
-        rfm69->setSync(mode->sync, mode->syncLen);
-        currentRxLen = mode->rxLen;
-        if ( (currentRxMode == RXMODE_TX35) && ((rxModes & (1<<RXMODE_EMT7170)) != 0) ) {
-            currentRxLen = 12;
-        }
         rfm69->startReceive(currentRxLen);
     }
 
@@ -536,8 +584,4 @@ bool Gw868::sendDiscovery(JsonDocument &doc) {
         }
     }
     return true;
-
-/*
-    if (lacrosse == proto)
-        Serial.println("THIS IS LACROSSE DISC!");*/
 }

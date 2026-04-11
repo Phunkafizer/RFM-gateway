@@ -53,6 +53,9 @@ private:
     uint8_t currentRxLen;
     unsigned long nextSwitch;
     uint32_t interval;
+    uint32_t customBaudrate;
+    uint8_t customSync[8];
+    uint8_t customSyncLen;
     LaCrosseDecoder lacrosse;
     EC3KDecoder ec3k;
     EMT7170Decoder emt7170;
