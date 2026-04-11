@@ -55,7 +55,6 @@ bool RcCodec::decode(const uint8_t *pulseBuf, const uint8_t len) {
         if (codec->decodePulses(pulseBuf, len)) {
             if ( (codec->lastDecode < (millis() - 500)) || (memcmp(codec->localSymbolBuf, codec->symbolBuf, codec->symbolBufLen) != 0) ) {
                 codec->onDecodedPulses();
-                ws.textAll(F("<hr>"));
             }
 
             memcpy(codec->localSymbolBuf, codec->symbolBuf, codec->symbolBufLen);
@@ -233,7 +232,6 @@ RcCodec* RcCodec::encode(String path, String payload, uint8_t *pulseBuf, uint8_t
             Serial.println("");
             #endif
             pulseBufLen = codec->encodePulses(pulseBuf);
-            ws.textAll(F("<hr>"));
             return codec;
         }
     }
@@ -248,7 +246,6 @@ RcCodec* RcCodec::encode(JsonDocument &doc, uint8_t *pulseBuf, uint8_t &pulseBuf
         if (codec->encodeSymbols(doc)) {
             uint16_t timebase = doc[FPSTR(STR_TIMEBASE)].isNull() ? codec->params->timebase : doc[FPSTR(STR_TIMEBASE)];
             pulseBufLen = codec->encodePulses(pulseBuf, timebase);
-            ws.textAll(F("<hr>"));
             return codec;
         }
     }

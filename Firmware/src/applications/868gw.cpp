@@ -514,8 +514,9 @@ void Gw868::loop() {
         rfm69->getPayload(buf);
         int rssi = rfm69->getRssi();
 
+        ws.textAll(F("<div class='rfframe'>"));
         String line;
-        line = F("<hr>RFM payload: ");
+        line = F("RFM payload: ");
         
         for (uint8_t i = 0; i < currentRxLen; i++) {
             if (buf[i] < 0x10)
@@ -547,7 +548,7 @@ void Gw868::loop() {
             break;
         }
 
-        ws.textAll(F("<hr>"));
+        ws.textAll(F("</div>"));
 
         rfm69->startReceive(currentRxLen);
     }

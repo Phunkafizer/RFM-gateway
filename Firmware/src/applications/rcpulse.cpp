@@ -126,14 +126,15 @@ void RcPulseTransceiver::loop() {
                         }
 
                         if (cnt1 < 5) {
+                            ws.textAll(F("<div class='rfframe'>"));
                             if (!RcCodec::decode(pulseBuf, bufLen)) {
                                 // no matching decoder found
                                 String l = F("RAW: ");
                                 for (uint8_t i=0; i<bufLen; i++)
                                     l += String(pulseBuf[i]) + ' ';
-                                l += F("<hr>");
                                 ws.textAll(l);
                             }
+                            ws.textAll(F("</div>"));
                         }
                     }
 

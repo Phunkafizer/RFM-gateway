@@ -218,8 +218,10 @@ void mqttCallback(const char topic[], byte* payload, unsigned int length) {
         sTop = sTop.substring(baseTopic.length() + 1);
         String sPayload;
         sPayload.concat((const char*) payload, length);
-        if (radioapp->onMqttMessage(sTop, sPayload))
-            ws.textAll(F("Rec. MQTT ~/") + sTop + ": " + sPayload + F("<hr>"));
+        ws.textAll(F("<div class='rfframe'>"));
+        ws.textAll(F("Rec. MQTT ~/") + sTop + ": " + sPayload);
+        radioapp->onMqttMessage(sTop, sPayload);
+        ws.textAll(F("</div>"));
     }
 }
 

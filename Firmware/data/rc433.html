@@ -36,12 +36,9 @@
                 <option value="3">3</option><option value="4">4</option>
             </select>
         </div>
-        <div>
-            <h3>command</h3>
-            <select id="ittristate_command">
-                <option value="ON">ON</option>
-                <option value="OFF">OFF</option>
-            </select>
+        <div class="btnbar">
+            <button onclick="rc433SendCmd('ON')">ON</button>
+            <button onclick="rc433SendCmd('OFF')">OFF</button>
         </div>
     </div>
 
@@ -67,12 +64,9 @@
                 <option value="16">16</option>
             </select>
         </div>
-        <div>
-            <h3>command</h3>
-            <select id="intertechno_command">
-                <option value="ON">ON</option>
-                <option value="OFF">OFF</option>
-            </select>
+        <div class="btnbar">
+            <button onclick="rc433SendCmd('ON')">ON</button>
+            <button onclick="rc433SendCmd('OFF')">OFF</button>
         </div>
     </div>
 
@@ -95,12 +89,9 @@
                 <option value="1">1</option><option value="2">2</option><option value="3">3</option>
             </select>
         </div>
-        <div>
-            <h3>command</h3>
-            <select id="pilota_command">
-                <option value="ON">ON</option>
-                <option value="OFF">OFF</option>
-            </select>
+        <div class="btnbar">
+            <button onclick="rc433SendCmd('ON')">ON</button>
+            <button onclick="rc433SendCmd('OFF')">OFF</button>
         </div>
     </div>
 
@@ -110,12 +101,11 @@
             <h3>ID (0–1048575)</h3>
             <input type="text" id="emylo_id" placeholder="e.g. 123456">
         </div>
-        <div>
-            <h3>key</h3>
-            <select id="emylo_key">
-                <option value="A">A</option><option value="B">B</option>
-                <option value="C">C</option><option value="D">D</option>
-            </select>
+        <div class="btnbar">
+            <button onclick="rc433SendCmd('A')">A</button>
+            <button onclick="rc433SendCmd('B')">B</button>
+            <button onclick="rc433SendCmd('C')">C</button>
+            <button onclick="rc433SendCmd('D')">D</button>
         </div>
     </div>
 
@@ -129,10 +119,12 @@
             <h3>data (0–15)</h3>
             <input type="text" id="ev1527_data" placeholder="e.g. 8">
         </div>
+        <div class="btnbar">
+            <button id="rc433_sendbtn" onclick="rc433Send()">send</button>
+        </div>
     </div>
 
     <div class="btnbar">
-        <button onclick="rc433Send()">send</button>
         <button onclick="rc433SendDiscovery(false)">send HA discovery</button>
         <button onclick="rc433SendDiscovery(true)">clear HA discovery</button>
     </div>
@@ -140,20 +132,20 @@
 
 <script>
     function rc433ShowParams() {
-        var proto = _("#rc433_protocol").value;
-        for (var d of document.querySelectorAll(".rc433_params"))
+        var proto = _('#rc433_protocol').value;
+        for (var d of document.querySelectorAll('.rc433_params'))
             d.hidden = true;
-        var target = _("#rc433_params_" + proto);
+        var target = _('#rc433_params_' + proto);
         if (target) target.hidden = false;
     }
 
-    function getPayload() {
+    function getPayload(cmd) {
         var proto = _("#rc433_protocol").value;
         var doc = { protocol: proto };
         switch (proto) {
         case "ittristate":
             doc.house   = _("#ittristate_house").value;
-            doc.command = _("#ittristate_command").value;
+            doc.command = cmd;
             var group   = parseInt(_("#ittristate_group").value);
             var channel = parseInt(_("#ittristate_channel").value);
             if (group   > 0) doc.group   = group;
@@ -162,17 +154,17 @@
         case "intertechno":
             doc.id      = parseInt(_("#intertechno_id").value);
             doc.channel = parseInt(_("#intertechno_channel").value);
-            doc.command = _("#intertechno_command").value;
+            doc.command = cmd;
             break;
         case "pilota":
             doc.id      = parseInt(_("#pilota_id").value);
             doc.group   = parseInt(_("#pilota_group").value);
             doc.channel = parseInt(_("#pilota_channel").value);
-            doc.command = _("#pilota_command").value;
+            doc.command = cmd;
             break;
         case "emylo":
             doc.id  = parseInt(_("#emylo_id").value);
-            doc.key = _("#emylo_key").value;
+            doc.key = cmd;
             break;
         case "EV1527":
             doc.id   = parseInt(_("#ev1527_id").value);
@@ -182,6 +174,18 @@
             return;
         }
         return doc;
+    }
+
+    function rc433SendCmd(cmd) {
+        var doc = getPayload(cmd);
+        if (!doc) return;
+        fetch("/send/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(doc)
+        }).then(function(r) {
+            showToast(r.ok ? "sent" : "error " + r.status, !r.ok);
+        });
     }
 
     function rc433Send() {

@@ -168,6 +168,12 @@
             font-family: "Lucida Console", "Courier New", monospace;
         }
 
+        #console .rfframe {
+            border-left: 3px solid #1a73e8;
+            margin: 6px 0 2px;
+            padding-left: 6px;
+        }
+
         #logstatus {
             height: 0.5em;
             background-color: red;
@@ -391,9 +397,8 @@
 
             <fieldset>
                 <legend>system</legend>
-
                 <div>
-                    <h3>Firmware</h3>
+                    <h3>Firmware <a href="https://github.com/Phunkafizer/RFM-gateway/releases/latest" target="_blank" style="font-size:11px;font-weight:normal;">latest release ↗</a></h3>
                     <form id="form_upload" method='POST' enctype='multipart/form-data'>
                         <input id="inp_file" type='file' accept='.bin,.bin.gz' name='firmware'>
                         <input id="btn_upload" type='submit' value='Update Firmware' disabled>
@@ -538,6 +543,7 @@
     <script>
         'use strict';
         let websocket = null;
+    let rfFrame = null;
 
         function _(query) {
             return document.querySelector(query);
@@ -1099,11 +1105,27 @@
 
             function connectWS() {
                 function logws(msg) {
-                    let e = _$("div");
+                    if (msg === "<div class='rfframe'>") {
+                        rfFrame = _$('div');
+                        rfFrame.className = 'rfframe';
+                        return;
+                    }
+                    if (msg === '</div>' && rfFrame) {
+                        let cons = _("#console");
+                        cons.append(rfFrame);
+                        cons.scrollTop = cons.scrollHeight;
+                        rfFrame = null;
+                        return;
+                    }
+                    let e = _$('div');
                     e.innerHTML = msg;
-                    let cons = _("#console");
-                    cons.append(e);
-                    cons.scrollTop = cons.scrollHeight;
+                    if (rfFrame) {
+                        rfFrame.appendChild(e);
+                    } else {
+                        let cons = _("#console");
+                        cons.append(e);
+                        cons.scrollTop = cons.scrollHeight;
+                    }
                 }
 
                 websocket = new WebSocket("ws");
