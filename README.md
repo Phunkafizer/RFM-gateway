@@ -44,6 +44,14 @@ https://community.home-assistant.io/t/rfm-gateway-a-sub-ghz-bridge-to-home-assis
 - [PCB/](PCB/): hardware design files
 - [assets/](assets/): screenshots and images
 
+## Licensing
+
+This repository uses a split-license model:
+
+- Software/Firmware code: MIT, see [LICENSE](LICENSE)
+- Hardware design files: CERN-OHL-S-2.0, see [LICENSE-HARDWARE](LICENSE-HARDWARE)
+- Documentation and media assets: CC BY-SA 4.0, see [LICENSE-DOCS](LICENSE-DOCS)
+
 ### Preview
 
 ![RFM Gateway hardware](assets/DSC_0484.jpg)
