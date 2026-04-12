@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'Firmware/platformio.ini'
 
 permissions:
   contents: write
