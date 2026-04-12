@@ -1,7 +1,7 @@
 <p align="center">
   <a href="https://github.com/Phunkafizer/RFM-gateway/releases"><img src="https://img.shields.io/github/v/release/Phunkafizer/RFM-gateway?display_name=tag&sort=semver&style=flat-square" alt="Release"></a>
   <a href="https://github.com/Phunkafizer/RFM-gateway/releases"><img src="https://img.shields.io/github/downloads/Phunkafizer/RFM-gateway/total?style=flat-square" alt="Downloads"></a>
-  <a href="https://github.com/Phunkafizer/RFM-gateway/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Phunkafizer/RFM-gateway?style=flat-square" alt="License"></a>
+  <a href="#licensing"><img src="https://img.shields.io/badge/license-MIT%20%7C%20CERN--OHL--S--2.0%20%7C%20CC%20BY--SA%204.0-blue?style=flat-square" alt="Licenses"></a>
   <a href="https://github.com/Phunkafizer/RFM-gateway/commits/main"><img src="https://img.shields.io/github/last-commit/Phunkafizer/RFM-gateway?style=flat-square" alt="Last Commit"></a>
 </p>
 
