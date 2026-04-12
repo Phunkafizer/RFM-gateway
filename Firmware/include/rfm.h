@@ -136,13 +136,13 @@ public:
         RXBWASK_6_25KHZ = 1<<3 | 5<<0,      // 6.25 kHz
         RXBWASK_3_125KHZ = 1<<3 | 6<<0,     // 3.125 kHz
         RXBWASK_1_5625KHZ = 1<<3 | 7<<0,    // 1.5625 kHz
-        RXBWASK_125KHZ = 2<<3 | 0<<0,       // 125 kHz
-        RXBWASK_62_5KHZ = 2<<3 | 1<<0,      // 62.5 kHz
-        RXBWASK_31_25KHZ = 2<<3 | 2<<0,     // 31.25 kHz
-        RXBWASK_15_625KHZ = 2<<3 | 3<<0,    // 15.625 kHz
-        RXBWASK_7_8125KHZ = 2<<3 | 4<<0,    // 7.8125 kHz
-        RXBWASK_3_90625KHZ = 2<<3 | 5<<0,   // 3.90625 kHz
-        RXBWASK_1_953125KHZ = 2<<3 | 6<<0,  // 1.953125 kHz
+        RXBWASK_125KHZ_2 = 2<<3 | 0<<0,       // 125 kHz
+        RXBWASK_62_5KHZ_2 = 2<<3 | 1<<0,      // 62.5 kHz
+        RXBWASK_31_25KHZ_2 = 2<<3 | 2<<0,     // 31.25 kHz
+        RXBWASK_15_625KHZ_2 = 2<<3 | 3<<0,    // 15.625 kHz
+        RXBWASK_7_8125KHZ_2 = 2<<3 | 4<<0,    // 7.8125 kHz
+        RXBWASK_3_90625KHZ_2 = 2<<3 | 5<<0,   // 3.90625 kHz
+        RXBWASK_1_953125KHZ_2 = 2<<3 | 6<<0,  // 1.953125 kHz
         RXBWASK_0_9765625KHZ = 2<<3 | 7<<0, // 0.9765625 kHz
     };
 

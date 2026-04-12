@@ -12,25 +12,74 @@
             font-size: 12px;
         }
 
-        h1 {
-            text-align: center;
-            background: linear-gradient(135deg, #00274f 0%, #003d7a 100%);
-            font-size: 22px;
-            font-weight: 700;
-            color: #e8ecf0;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            padding: 14px 0 12px;
+        #site-header {
+            background: linear-gradient(160deg, #001428 0%, #00274f 45%, #003d7a 100%);
+            padding: 18px 20px 14px;
             border-bottom: 3px solid #1a73e8;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #site-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -70%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            animation: hdr-shimmer 5s ease-in-out infinite;
+        }
+
+        @keyframes hdr-shimmer {
+            0%   { left: -70%; }
+            100% { left: 170%; }
+        }
+
+        .hdr-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+        }
+
+        .hdr-icon {
+            width: 48px;
+            height: 48px;
+            color: #4da3ff;
+            filter: drop-shadow(0 0 8px rgba(26,115,232,0.85));
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 800;
+            color: #e8ecf0;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(26,115,232,0.55), 0 1px 4px rgba(0,0,0,0.5);
+            line-height: 1.1;
+        }
+
+        .hdr-sub {
+            font-size: 10px;
+            color: #7ab3f0;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            margin-top: 4px;
+            opacity: 0.85;
         }
 
         h2 {
-            background-color: #323a42;
-            color: #bab8d5;
-            font-size: 14px;
-            padding: 5px;
+            background: linear-gradient(90deg, #2a3540 0%, #323a42 100%);
+            color: #c0bedd;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 7px 10px;
             margin: 1em 0;
+            border-left: 3px solid #1a73e8;
         }
 
         h3 {
@@ -58,21 +107,34 @@
         }
 
         #navi {
-            background-color: #00274f;
+            background: linear-gradient(180deg, #002040 0%, #00274f 100%);
+            display: flex;
+            gap: 2px;
+            padding: 5px 5px 0;
+            box-shadow: inset 0 -2px 0 #1a73e8;
         }
 
         #navi button {
+            border-radius: 4px 4px 0 0;
             background-color: transparent;
-            font-size: larger;
-            font-weight: bold;
-            color: #DDD;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8aaccc;
             border: none;
+            padding: 7px 13px;
+            letter-spacing: 0.04em;
+            transition: color 0.15s, background-color 0.15s;
+        }
+
+        #navi button:hover:not(.active) {
+            color: #ddeeff;
+            background-color: rgba(255,255,255,0.08);
         }
 
         #navi button.active {
             background-color: #acb3bb;
-            color: #333;
-            border: 10px 10px 0 0;
+            color: #00274f;
+            font-weight: 700;
         }
 
         input[type=text], input[type=password], select {
@@ -85,9 +147,12 @@
         }
 
         div#wrapper {
-            background-color:#acb3bb;
+            background-color: #acb3bb;
             max-width: 640px;
             margin: 5px auto;
+            box-shadow: 0 8px 36px rgba(0,0,0,0.35);
+            border-radius: 4px;
+            overflow: hidden;
         }
 
         div.tab {
@@ -141,13 +206,15 @@
         }
 
         #footer {
-            background-color: #00274f;
+            background: linear-gradient(90deg, #001428 0%, #00274f 50%, #001428 100%);
             margin: 0;
-            color: white;
+            color: #8aaccc;
             height: 2em;
             display: flex;
             justify-content: center;
             align-items: center;
+            font-size: 11px;
+            letter-spacing: 0.05em;
         }
 
         #footer a {
@@ -214,7 +281,20 @@
 </head>
 <body>
     <div id="wrapper">
-        <h1>RFM gateway</h1>
+        <header id="site-header">
+            <div class="hdr-inner">
+                <svg class="hdr-icon" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="22" r="2.5" fill="currentColor"/>
+                    <path d="M10.5 16.5a7.78 7.78 0 0 1 11 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M7 13a12.73 12.73 0 0 1 18 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M3.5 9.5a17.68 17.68 0 0 1 25 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <div>
+                    <h1>RFM Gateway</h1>
+                    <div class="hdr-sub">Smart RF Integration</div>
+                </div>
+            </div>
+        </header>
 
         <div id="navi">
         </div>
@@ -768,13 +848,13 @@
             const xhr = new XMLHttpRequest();
             xhr.onload = (ev) => {
                 if (ev.target.status === 200) {
-                    alert("Discovery sent successfully!");
+                    showToast("Discovery sent successfully!");
                 } else {
-                    alert("Error sending discovery!");
+                    showToast("Error sending discovery!", true);
                 }
             };
             xhr.onerror = (ev) => {
-                alert("Request failed!");
+                showToast("Request failed!", true);
             };
             xhr.open("POST", "/senddisc");
             xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");

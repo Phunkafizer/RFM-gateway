@@ -39,22 +39,29 @@ static const char STR_U[] PROGMEM = "U";
 static const char STR_UVIDX[] PROGMEM = "UVidx";
 static const char STR_RSSI[] PROGMEM = "rssi";
 
+enum SensorType {
+    SENSOR,
+    BINARY_SENSOR
+};
+
 const struct {
+    SensorType sensorType;
     const char* field;
     const char *devClass;
     const char *unit;
 } DISC_FIELDS[] PROGMEM = {
-    {STR_T,     "temperature",      "°C"},
-    {STR_RH,    "humidity",         "%"},
-    {STR_RAIN,  "precipitation",    "mm"},
-    {STR_VAVG,  "wind_speed",       "m/s"},
-    {STR_EV,    "illuminance",      "lx"},
-    {STR_WDIR,  "wind_direction",   "°"},
-    {STR_P,     "power",            "W"},
-    {STR_E,     "energy",           "kWh"},
-    {STR_U,     "voltage",          "v"},
-    {STR_UVIDX, "uv_index",         ""},
-    {STR_RSSI,  "signal_strength",  "dBm"}
+    {SensorType::SENSOR,        STR_T,     "temperature",      "°C"},
+    {SensorType::SENSOR,        STR_RH,    "humidity",         "%"},
+    {SensorType::SENSOR,        STR_RAIN,  "precipitation",    "mm"},
+    {SensorType::SENSOR,        STR_VAVG,  "wind_speed",       "m/s"},
+    {SensorType::SENSOR,        STR_EV,    "illuminance",      "lx"},
+    {SensorType::SENSOR,        STR_WDIR,  "wind_direction",   "°"},
+    {SensorType::SENSOR,        STR_P,     "power",            "W"},
+    {SensorType::SENSOR,        STR_E,     "energy",           "kWh"},
+    {SensorType::SENSOR,        STR_U,     "voltage",          "v"},
+    {SensorType::SENSOR,        STR_UVIDX, "uv_index",         ""},
+    {SensorType::SENSOR,        STR_RSSI,  "signal_strength",  "dBm"},
+    {SensorType::BINARY_SENSOR, "batlow", "battery", ""},
 };
 
 RadioApplication *radioapp = nullptr;
@@ -565,10 +572,22 @@ bool Gw868::sendDiscovery(JsonDocument &doc) {
         return haId;
     };
 
-    auto haPublish = [&](const char *suffix) {
+    auto haPublish = [&](const char *suffix, SensorType sensorType) {
         haDisc.setStateTopic(topic);
-        String tmpl = F("{{ value_json.") + String(suffix);
-        tmpl += F(" }}");
+
+        String tmpl;
+        switch (sensorType) {
+            case SensorType::SENSOR:
+                tmpl = F("{{ value_json.# }}");
+                break;
+
+            case SensorType::BINARY_SENSOR:
+                tmpl = F("{% set tmp = value_json.get('#') %}{{ none if tmp is none else ('ON' if tmp else 'OFF') }}");
+                break;
+        };
+
+        tmpl.replace("#", suffix);
+
         haDisc.setValueTemplate(tmpl);
         haDisc.setExpire(300); // expire after 5 min
         haDisc.setAvailability(getAvailabilityTopic());
@@ -578,10 +597,19 @@ bool Gw868::sendDiscovery(JsonDocument &doc) {
     for (unsigned int i=0; i<sizeof(DISC_FIELDS)/sizeof(DISC_FIELDS[0]); i++) {
         if (!doc[FPSTR(DISC_FIELDS[i].field)].isNull()) {    
             String haId = generateHaId(DISC_FIELDS[i].field);
-            haDisc.createSensor(haName, haId);
+            switch (DISC_FIELDS[i].sensorType) {
+                case SensorType::SENSOR:
+                    haDisc.createSensor(haName, haId);
+                    break;
+
+                case SensorType::BINARY_SENSOR:
+                    haDisc.createBinarySensor(haName, haId, "");
+                    break;
+            };
+            
             haDisc.setDeviceClass(FPSTR(DISC_FIELDS[i].devClass));
             haDisc.setUnit(FPSTR(DISC_FIELDS[i].unit));
-            haPublish(DISC_FIELDS[i].field);
+            haPublish(DISC_FIELDS[i].field, DISC_FIELDS[i].sensorType);
         }
     }
     return true;
