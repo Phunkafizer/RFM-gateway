@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="https://github.com/Phunkafizer/RFM-gateway/releases"><img src="https://img.shields.io/github/v/release/Phunkafizer/RFM-gateway?display_name=tag&sort=semver&style=flat-square" alt="Release"></a>
+  <a href="https://github.com/Phunkafizer/RFM-gateway/releases"><img src="https://img.shields.io/github/downloads/Phunkafizer/RFM-gateway/total?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/Phunkafizer/RFM-gateway/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Phunkafizer/RFM-gateway?style=flat-square" alt="License"></a>
+  <a href="https://github.com/Phunkafizer/RFM-gateway/commits/main"><img src="https://img.shields.io/github/last-commit/Phunkafizer/RFM-gateway?style=flat-square" alt="Last Commit"></a>
+</p>
+
 # RFM Gateway
 
 RFM Gateway is a radio-to-WiFi bridge that connects HopeRF radio modules to an
@@ -6,6 +13,9 @@ also send RF commands from HTTP or MQTT inputs.
 
 Project description:
 https://www.seegel-systeme.de/2023/09/15/rfm-wifi-gateway-a-radio-to-wifi-bridge/
+
+Home Assistant forum:
+https://community.home-assistant.io/t/rfm-gateway-a-sub-ghz-bridge-to-home-assistant/982886
 
 ## Highlights
 
@@ -33,14 +43,6 @@ https://www.seegel-systeme.de/2023/09/15/rfm-wifi-gateway-a-radio-to-wifi-bridge
 - [Firmware/](Firmware/): PlatformIO firmware project and web UI
 - [PCB/](PCB/): hardware design files
 - [assets/](assets/): screenshots and images
-
-## Assets
-
-Available files in [assets/](assets/):
-
-- [DSC_0484.jpg](assets/DSC_0484.jpg)
-- [HA RFM 433.png](assets/HA%20RFM%20433.png)
-- [webUI RFM 433.png](assets/webUI%20RFM%20433.png)
 
 ### Preview
 

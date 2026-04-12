@@ -1,0 +1,13 @@
+{
+  "geometry": "640x720+182+182",
+  "rfmtype": 1,
+  "freqband": 2,
+  "fcorr": 329,
+  "txpower": 3,
+  "ittristate_house": 2,
+  "ittristate_group": 2,
+  "ittristate_channel": 0,
+  "it32_id": "25221242",
+  "it32_channel": 0,
+  "emylo_id": "12345"
+}
