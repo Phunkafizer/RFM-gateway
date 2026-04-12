@@ -11,8 +11,6 @@
  * RFM96: 433 / 470 MHz, Spreading Factor 6 - 12
  * RFM97: 868 / 915 MHz, Spreading Factor 6 - 9
  * RFM98: 433 / 470 MHz, Spreading Factor 6 - 12
- * 
- * 
  */
 
 class RfmBase {
@@ -119,9 +117,44 @@ public:
         RXBWFSK_10_4KHZ = 2<<3 | 5<<0,      // 10.416 kHz
         RXBWFSK_5_2KHZ = 2<<3 | 6<<0,       // 5.208 kHz
         RXBWFSK_2_6KHZ = 2<<3 | 7<<0,       // 2.604 kHz
+    };
 
-        RXBWASK_250KHZ = 0<<3 | 0<<0       // 250 kHz
+    enum RxBandwidthOok: uint8_t {
+        RXBWASK_250KHZ = 0<<3 | 0<<0,       // 250 kHz
+        RXBWASK_125KHZ = 0<<3 | 1<<0,       // 125 kHz
+        RXBWASK_62_5KHZ = 0<<3 | 2<<0,      // 62.5 kHz
+        RXBWASK_31_25KHZ = 0<<3 | 3<<0,     // 31.25 kHz
+        RXBWASK_15_625KHZ = 0<<3 | 4<<0,    // 15.625 kHz
+        RXBWASK_7_8125KHZ = 0<<3 | 5<<0,    // 7.8125 kHz
+        RXBWASK_3_90625KHZ = 0<<3 | 6<<0,   // 3.90625 kHz
+        RXBWASK_1_953125KHZ = 0<<3 | 7<<0,  // 1.953125 kHz
+        RXBWASK_200KHZ = 1<<3 | 0<<0,       // 200 kHz
+        RXBWASK_100KHZ = 1<<3 | 1<<0,       // 100 kHz
+        RXBWASK_50KHZ = 1<<3 | 2<<0,        // 50 kHz
+        RXBWASK_25KHZ = 1<<3 | 3<<0,        // 25 kHz
+        RXBWASK_12_5KHZ = 1<<3 | 4<<0,      // 12.5 kHz
+        RXBWASK_6_25KHZ = 1<<3 | 5<<0,      // 6.25 kHz
+        RXBWASK_3_125KHZ = 1<<3 | 6<<0,     // 3.125 kHz
+        RXBWASK_1_5625KHZ = 1<<3 | 7<<0,    // 1.5625 kHz
+        RXBWASK_125KHZ = 2<<3 | 0<<0,       // 125 kHz
+        RXBWASK_62_5KHZ = 2<<3 | 1<<0,      // 62.5 kHz
+        RXBWASK_31_25KHZ = 2<<3 | 2<<0,     // 31.25 kHz
+        RXBWASK_15_625KHZ = 2<<3 | 3<<0,    // 15.625 kHz
+        RXBWASK_7_8125KHZ = 2<<3 | 4<<0,    // 7.8125 kHz
+        RXBWASK_3_90625KHZ = 2<<3 | 5<<0,   // 3.90625 kHz
+        RXBWASK_1_953125KHZ = 2<<3 | 6<<0,  // 1.953125 kHz
+        RXBWASK_0_9765625KHZ = 2<<3 | 7<<0, // 0.9765625 kHz
+    };
 
+    enum DccFreq {
+        DCC_16 = 0<<5,      // ~16 % of RX bandwidth
+        DCC_8 = 1<<5,       // ~8 % of RX bandwidth
+        DCC_4 = 2<<5,       // ~4 % of RX bandwidth
+        DCC_2 = 3<<5,       // ~2 % of RX bandwidth
+        DCC_1 = 4<<5,       // ~1 % of RX bandwidth
+        DCC_0_5 = 5<<5,     // ~0.5 % of RX bandwidth
+        DCC_0_25 = 6<<5,    // ~0.25 % of RX bandwidth
+        DCC_0_125 = 7<<5,   // ~0.125 % of RX bandwidth
     };
 
     enum FifoLevel {

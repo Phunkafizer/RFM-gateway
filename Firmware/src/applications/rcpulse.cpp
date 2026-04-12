@@ -10,7 +10,7 @@ RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq):
         pulseLen(1),
         txMode(TX_IDLE) {
     Rfm69::Rfm69Config cfg[] = {
-        {Rfm69::RegRxBw, 2<<5 | Rfm69::RXBWASK_250KHZ},
+        {Rfm69::RegRxBw, Rfm69::DccFreq::DCC_0_125 | Rfm69::RXBWASK_250KHZ},
         {Rfm69::RegSyncConfig, 1<<6}, // no sync, FifoFillCondition set
         {Rfm69::RegRssiThresh, 160}, // /-0.5 dBm
         {Rfm69::RegDataModul, 1<<3}, // OOK
