@@ -14,8 +14,6 @@
  */
 
 class RfmBase {
-private:
-    uint8_t pinSS;
 protected:
     uint8_t readReg(const uint8_t reg);
     uint16_t readReg16(const uint8_t reg);
@@ -24,6 +22,7 @@ protected:
     void writeReg16(const uint8_t reg, const uint16_t value);
     void writeRegBuf(const uint8_t reg, const uint8_t *buf, const size_t size);
     void setReg(const uint8_t reg, const uint8_t set, const uint8_t clear);
+    uint8_t pinSS;
 public:
     virtual void begin(const uint8_t pinSS);
     virtual ~RfmBase() {}

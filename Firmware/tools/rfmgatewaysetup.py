@@ -8,6 +8,7 @@ import requests
 import msvcrt
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 from functools import partial
 
 try:
@@ -17,11 +18,12 @@ except ImportError:
 
 try:
     import matplotlib.pyplot as plt
+    from matplotlib.widgets import Slider
 except ImportError:
     plt = None
+    Slider = None
 
-#GATEWAY_IP = '4.3.2.1'
-GATEWAY_IP = '192.168.178.96'
+GATEWAY_IP = 'rfm433.local'
 FSTEP = 32e6 / (1 << 19)
 
 # Frequency bands: [0]=315MHz, [1]=433MHz, [2]=868MHz, [3]=915MHz
@@ -34,8 +36,8 @@ FREQ_BANDS = [
 
 _DLL_NAMES = ['rtlsdr.dll', 'librtlsdr.dll']
 PLOT_Y_MIN_DB = 40.0
-PLOT_Y_MAX_DB = 120.0
-PLOT_SPAN_HZ = 50_000.0
+PLOT_Y_MAX_DB = 140.0
+PLOT_SPAN_HZ = 75_000.0
 SETTINGS_FILE = 'rfmgatewaysetup.settings.json'
 
 
@@ -79,6 +81,7 @@ def _load_rtlsdr_library():
     _register('rtlsdr_set_tuner_gain', ctypes.c_int, [ctypes.c_void_p, ctypes.c_int])
     _register('rtlsdr_reset_buffer', ctypes.c_int, [ctypes.c_void_p])
     _register('rtlsdr_read_sync', ctypes.c_int, [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint, ctypes.POINTER(ctypes.c_int)])
+    _register('rtlsdr_set_freq_correction', ctypes.c_int, [ctypes.c_void_p, ctypes.c_int])
     return dll
 
 
@@ -86,6 +89,11 @@ class RtlSdr:
     def __init__(self, device_index=0):
         self._dll = _load_rtlsdr_library()
         self._dev = ctypes.c_void_p()
+        self._read_buffer = None
+        self._read_buffer_len = 0
+        self._n_read = ctypes.c_int()
+        self._iq_tmp = np.empty(0, dtype=np.float32) if np is not None else None
+        self._complex_tmp = np.empty(0, dtype=np.complex64) if np is not None else None
         result = self._dll.rtlsdr_open(ctypes.byref(self._dev), ctypes.c_uint(device_index))
         if result != 0:
             raise OSError(f'rtlsdr_open failed with error code {result}')
@@ -132,19 +140,53 @@ class RtlSdr:
         if result != 0:
             raise OSError(f'rtlsdr_set_tuner_gain failed with error code {result}')
 
+    @property
+    def freq_correction(self):
+        raise AttributeError('freq_correction is write-only')
+
+    @freq_correction.setter
+    def freq_correction(self, value):
+        result = self._dll.rtlsdr_set_freq_correction(self._dev, ctypes.c_int(int(value)))
+        if result not in (0, -2):  # -2 = same value already set, not an error
+            raise OSError(f'rtlsdr_set_freq_correction failed with error code {result}')
+
+    def flush_buffer(self):
+        result = self._dll.rtlsdr_reset_buffer(self._dev)
+        if result != 0:
+            raise OSError(f'rtlsdr_reset_buffer failed with error code {result}')
+
     def read_samples(self, num_samples):
-        self._dll.rtlsdr_reset_buffer(self._dev)
         buffer_len = num_samples * 2
-        buffer = (ctypes.c_ubyte * buffer_len)()
-        n_read = ctypes.c_int()
-        result = self._dll.rtlsdr_read_sync(self._dev, buffer, ctypes.c_uint(buffer_len), ctypes.byref(n_read))
+        if self._read_buffer is None or self._read_buffer_len != buffer_len:
+            self._read_buffer = (ctypes.c_ubyte * buffer_len)()
+            self._read_buffer_len = buffer_len
+
+        result = self._dll.rtlsdr_read_sync(
+            self._dev,
+            self._read_buffer,
+            ctypes.c_uint(buffer_len),
+            ctypes.byref(self._n_read),
+        )
         if result != 0:
             raise OSError(f'rtlsdr_read_sync failed with error code {result}')
-        raw = bytes(buffer[:n_read.value])
-        samples = []
-        for i in range(0, len(raw) - 1, 2):
-            samples.append(complex(raw[i] - 128, raw[i + 1] - 128))
-        return np.asarray(samples, dtype=np.complex64)
+
+        count = self._n_read.value // 2
+        if count <= 0:
+            return np.empty(0, dtype=np.complex64)
+
+        if self._iq_tmp is None or self._iq_tmp.size < count * 2:
+            self._iq_tmp = np.empty(count * 2, dtype=np.float32)
+        if self._complex_tmp is None or self._complex_tmp.size < count:
+            self._complex_tmp = np.empty(count, dtype=np.complex64)
+
+        raw_u8 = np.frombuffer(self._read_buffer, dtype=np.uint8, count=count * 2)
+        iq = self._iq_tmp[:count * 2]
+        np.subtract(raw_u8, 128.0, out=iq)
+
+        samples = self._complex_tmp[:count]
+        samples.real = iq[0::2]
+        samples.imag = iq[1::2]
+        return samples
 
 
 def compute_spectrum_db(samples, sample_rate, center_freq):
@@ -184,6 +226,55 @@ def mix_down(samples, sample_rate, shift_hz):
     return samples * osc
 
 
+def _fir_lowpass_coeffs(taps, cutoff_hz, sample_rate):
+    normalized_cutoff = float(cutoff_hz) / float(sample_rate)
+    if normalized_cutoff <= 0.0 or normalized_cutoff >= 0.5:
+        raise ValueError('cutoff_hz must be between 0 and Nyquist')
+    m = taps - 1
+    n = np.arange(taps) - m / 2.0
+    h = 2.0 * normalized_cutoff * np.sinc(2.0 * normalized_cutoff * n)
+    h *= np.hamming(taps)
+    h /= np.sum(h)
+    return h
+
+
+def lowpass(samples, cutoff_hz, sample_rate, taps=257):
+    coeffs = _fir_lowpass_coeffs(taps, cutoff_hz, sample_rate)
+    return np.convolve(samples, coeffs, mode='same')
+
+
+def estimate_frequency_from_phase(samples, sample_rate):
+    if len(samples) < 2:
+        return 0.0
+
+    amplitude = np.abs(samples)
+    threshold = np.max(amplitude) * 0.35
+    if threshold > 0.0:
+        mask = (amplitude[1:] >= threshold) & (amplitude[:-1] >= threshold)
+        products = samples[1:][mask] * np.conj(samples[:-1][mask])
+        if len(products) == 0:
+            products = samples[1:] * np.conj(samples[:-1])
+    else:
+        products = samples[1:] * np.conj(samples[:-1])
+
+    if len(products) == 0:
+        return 0.0
+
+    phase_step = np.angle(np.sum(products))
+    return phase_step * sample_rate / (2.0 * np.pi)
+
+
+def estimate_peak_frequency_precise(samples, sample_rate, coarse_offset_hz):
+    baseband = mix_down(samples, sample_rate, coarse_offset_hz)
+    filtered = lowpass(baseband, cutoff_hz=2500.0, sample_rate=sample_rate)
+
+    decimation = max(1, int(sample_rate // 8000))
+    decimated = filtered[::decimation]
+    decimated_rate = sample_rate / decimation
+    residual_hz = estimate_frequency_from_phase(decimated, decimated_rate)
+    return coarse_offset_hz + residual_hz
+
+
 def _fir_bandpass_coeffs(taps, lowcut_hz, highcut_hz, sample_rate):
     nyq = sample_rate / 2.0
     low = float(lowcut_hz) / nyq
@@ -206,20 +297,10 @@ def bandpass(samples, lowcut_hz, highcut_hz, sample_rate, taps=129):
     return np.convolve(samples, coeffs, mode='same')
 
 
-def estimate_tone_frequency(samples, sample_rate):
-    window = np.hanning(len(samples))
-    spectrum = np.fft.fftshift(np.fft.fft(samples * window))
-    freqs = np.fft.fftshift(np.fft.fftfreq(len(samples), d=1.0 / sample_rate))
-    peak_idx = np.argmax(np.abs(spectrum) ** 2)
-    return freqs[peak_idx]
-
-
 def measure_remote_carrier(
     samples,
     sample_rate,
     center_freq,
-    target_offset_hz=455000.0,
-    tone_band_hz=4000.0,
     expected_peak_offset_hz=0.0,
     peak_search_span_hz=30000.0,
 ):
@@ -230,22 +311,14 @@ def measure_remote_carrier(
         expected_offset_hz=expected_peak_offset_hz,
         search_span_hz=peak_search_span_hz,
     )
-    shift_hz = -(peak_offset - target_offset_hz)
-    mixed = mix_down(samples, sample_rate, shift_hz)
-    half_bw = tone_band_hz / 2.0
-    filtered = bandpass(
-        mixed,
-        target_offset_hz - half_bw,
-        target_offset_hz + half_bw,
-        sample_rate,
-    )
-    tone_hz = estimate_tone_frequency(filtered, sample_rate)
-    return peak_freq, peak_offset, peak_power, tone_hz
+    precise_peak_offset = estimate_peak_frequency_precise(samples, sample_rate, peak_offset)
+    return center_freq + precise_peak_offset, precise_peak_offset, peak_power
 
 
 class IntegratedSdrRunner:
-    def __init__(self, center_freq):
+    def __init__(self, center_freq, ppm_correction=0):
         self.center_freq = center_freq
+        self.ppm_correction = ppm_correction
         self._thread = None
         self._stop_event = threading.Event()
         self._measurements = deque(maxlen=2048)
@@ -289,7 +362,9 @@ class IntegratedSdrRunner:
             sr = 2.048e6
             sdr.sample_rate = sr
             sdr.center_freq = self.center_freq
+            sdr.freq_correction = self.ppm_correction
             sdr.gain = 49.6
+            sdr.flush_buffer()
 
             read_size = 16384
             peak_search_span_hz = 300000.0
@@ -297,42 +372,76 @@ class IntegratedSdrRunner:
             step_hz = 32e6 / (1 << 19)
             expected_peak_offset_hz = 0.0
             last_offset_now_khz = None
+            last_print_ts = 0.0
+
+            window = np.hanning(read_size)
+            freq_offsets_hz = np.fft.fftshift(np.fft.fftfreq(read_size, d=1.0 / sr))
+            freq_hz = self.center_freq + freq_offsets_hz
+            half_plot_span_hz = PLOT_SPAN_HZ / 2.0
+            span_mask = (freq_hz >= (self.center_freq - half_plot_span_hz)) & (freq_hz <= (self.center_freq + half_plot_span_hz))
+            span_freq_mhz = freq_hz[span_mask] / 1e6
 
             while not self._stop_event.is_set():
                 now = time.monotonic()
 
                 x = sdr.read_samples(read_size)
+                if x.size == 0:
+                    continue
 
-                freq_hz, power_db = compute_spectrum_db(x, sr, self.center_freq)
-                half_plot_span_hz = PLOT_SPAN_HZ / 2.0
-                span_mask = (freq_hz >= (self.center_freq - half_plot_span_hz)) & (freq_hz <= (self.center_freq + half_plot_span_hz))
+                if x.size != read_size:
+                    local_window = np.hanning(x.size)
+                    local_freq_offsets_hz = np.fft.fftshift(np.fft.fftfreq(x.size, d=1.0 / sr))
+                else:
+                    local_window = window
+                    local_freq_offsets_hz = freq_offsets_hz
+
+                spectrum = np.fft.fftshift(np.fft.fft(x * local_window))
+                power = np.abs(spectrum) ** 2
+                power_db = 10.0 * np.log10(power + 1e-12)
+
+                if x.size != read_size:
+                    local_freq_hz = self.center_freq + local_freq_offsets_hz
+                    local_span_mask = (local_freq_hz >= (self.center_freq - half_plot_span_hz)) & (local_freq_hz <= (self.center_freq + half_plot_span_hz))
+                    plot_freq_mhz = local_freq_hz[local_span_mask] / 1e6
+                    plot_power_db = power_db[local_span_mask]
+                else:
+                    plot_freq_mhz = span_freq_mhz
+                    plot_power_db = power_db[span_mask]
+
                 with self._plot_lock:
-                    self._latest_freq_mhz = freq_hz[span_mask] / 1e6
-                    self._latest_power_db = power_db[span_mask]
+                    self._latest_freq_mhz = plot_freq_mhz
+                    self._latest_power_db = plot_power_db
                     self._latest_offset_now_khz = last_offset_now_khz
 
-                _, peak_offset, peak_power, tone_hz = measure_remote_carrier(
-                    x,
-                    sr,
-                    self.center_freq,
-                    target_offset_hz=455000.0,
-                    tone_band_hz=4000.0,
-                    expected_peak_offset_hz=expected_peak_offset_hz,
-                    peak_search_span_hz=peak_search_span_hz,
-                )
+                if expected_peak_offset_hz is not None and peak_search_span_hz is not None and peak_search_span_hz > 0:
+                    half_span = peak_search_span_hz / 2.0
+                    local_mask = (local_freq_offsets_hz >= expected_peak_offset_hz - half_span) & (local_freq_offsets_hz <= expected_peak_offset_hz + half_span)
+                    if np.any(local_mask):
+                        candidate_indices = np.flatnonzero(local_mask)
+                        peak_index = int(candidate_indices[np.argmax(power[local_mask])])
+                    else:
+                        peak_index = int(np.argmax(power))
+                else:
+                    peak_index = int(np.argmax(power))
+
+                peak_offset = local_freq_offsets_hz[peak_index]
+                peak_power = power[peak_index]
+                precise_peak_offset = estimate_peak_frequency_precise(x, sr, peak_offset)
+
                 if peak_power >= power_threshold:
-                    expected_peak_offset_hz = peak_offset
-                    if_error_hz = abs(tone_hz) - 455000.0
+                    expected_peak_offset_hz = precise_peak_offset
+                    if_error_hz = precise_peak_offset
                     with self._measurements_lock:
                         self._measurements.append((now, if_error_hz))
                     last_offset_now_khz = if_error_hz / 1e3
                     offset_now_steps = int(round(if_error_hz / step_hz))
-                    print(
-                        f'IF {tone_hz / 1e3:+8.2f} kHz | '
-                        f'error_now {int(round(if_error_hz)):+6d} Hz | '
-                        f'steps {offset_now_steps:+5d} | '
-                        f'offset_now {if_error_hz / 1e3:+6.1f} kHz'
-                    )
+                    if now - last_print_ts >= 0.25:
+                        print(
+                            f'IF {if_error_hz / 1e3:+8.2f} kHz | '
+                            f'steps {offset_now_steps:+5d} | '
+                            f'offset {if_error_hz / 1e3:+7.2f} kHz'
+                        )
+                        last_print_ts = now
         except Exception as exc:
             print(f'SDR unavailable: {exc}')
         finally:
@@ -351,7 +460,14 @@ class RFMTestApp:
         self.sdr_ax = None
         self.sdr_line = None
         self.sdr_offset_text = None
+        self.sdr_gauge_ax = None
+        self.sdr_gauge_bar = None
+        self.sdr_gauge_value_text = None
+        self.sdr_gauge_deadband_rect = None
         self.sdr_plot_after_id = None
+        self.sdr_span_hz = PLOT_SPAN_HZ
+        self.sdr_span_slider = None
+        self.sdr_slider_ax = None
         self.auto_calib_thread = None
         self.auto_calib_stop_event = threading.Event()
         self.root = Tk()
@@ -390,20 +506,32 @@ class RFMTestApp:
         self.txpower.grid(row=6, column=0, columnspan=2, padx=4, pady=2, sticky='w')
         self.update_txpower_for_rfmtype()
 
-        self.sdrbtn = ttk.Button(self.setup_frame, text="Start SDR", width=12, command=self.start_sdr_with_freq)
-        self.sdrbtn.grid(row=7, column=0, padx=4, pady=6, sticky='w')
+        self.sdr_controls_frame = ttk.Frame(self.setup_frame)
+        self.sdr_controls_frame.grid(row=7, column=0, columnspan=5, padx=2, pady=6, sticky='w')
 
-        self.txtestbtn = ttk.Button(self.setup_frame, text="TX test", width=12, command=self.txtest)
-        self.txtestbtn.grid(row=7, column=1, padx=4, pady=6, sticky='w')
+        self.sdrbtn = ttk.Button(self.sdr_controls_frame, text="Start SDR", width=10, command=self.start_sdr_with_freq)
+        self.sdrbtn.pack(side=LEFT, padx=(0, 2))
 
-        self.savebtn = ttk.Button(self.setup_frame, text="save radio setup", width=12, command=self.saveradiosetup)
-        self.savebtn.grid(row=7, column=2, padx=4, pady=6, sticky='w')
+        ttk.Label(self.sdr_controls_frame, text='PPM').pack(side=LEFT, padx=(2, 1))
+        self.sdr_ppm = Spinbox(self.sdr_controls_frame, from_=-200, to=200, width=5)
+        self.sdr_ppm.delete(0, END)
+        self.sdr_ppm.insert(0, '0')
+        self.sdr_ppm.pack(side=LEFT, padx=(1, 4))
 
-        self.autocalibbtn = ttk.Button(self.setup_frame, text="Auto Calib", width=12, command=self.toggle_auto_calib)
-        self.autocalibbtn.grid(row=8, column=0, padx=4, pady=6, sticky='w')
+        self.txtestbtn = ttk.Button(self.sdr_controls_frame, text="TX test", width=10, command=self.txtest)
+        self.txtestbtn.pack(side=LEFT, padx=2)
 
-        self.configbtn = ttk.Button(self.root, text="send default config", width=18, command=self.saveconfig)
-        self.configbtn.pack(padx=10, pady=4)
+        self.autocalibbtn = ttk.Button(self.sdr_controls_frame, text="Auto Calib", width=12, command=self.toggle_auto_calib)
+        self.autocalibbtn.pack(side=LEFT, padx=2)
+
+        self.sdr_save_frame = ttk.Frame(self.setup_frame)
+        self.sdr_save_frame.grid(row=8, column=0, columnspan=5, padx=2, pady=2, sticky='w')
+
+        self.savebtn = ttk.Button(self.sdr_save_frame, text="Save setup", width=10, command=self.saveradiosetup)
+        self.savebtn.pack(side=LEFT, padx=2)
+
+        self.configbtn = ttk.Button(self.sdr_save_frame, text="Save default config", width=14, command=self.saveconfig)
+        self.configbtn.pack(side=LEFT, padx=2)
 
         self.ittristate_frame = ttk.LabelFrame(self.root, text='Tristate', padding=10)
         self.ittristate_frame.pack(fill='x', padx=10, pady=8)
@@ -490,6 +618,7 @@ class RFMTestApp:
             'freqband': self.freqband.current(),
             'fcorr': int(self.fcorr.get()),
             'txpower': int(self.txpower.get()),
+            'sdr_ppm': int(self.sdr_ppm.get()) if self.sdr_ppm.get().lstrip('-').isdigit() else 0,
             'ittristate_house': self.ittristate_house.current(),
             'ittristate_group': self.ittristate_group.current(),
             'ittristate_channel': self.ittristate_channel.current(),
@@ -534,6 +663,11 @@ class RFMTestApp:
         if isinstance(txpower, (int, float)):
             self.txpower.set(int(txpower))
 
+        sdr_ppm = settings.get('sdr_ppm')
+        if isinstance(sdr_ppm, (int, float)):
+            self.sdr_ppm.delete(0, END)
+            self.sdr_ppm.insert(0, str(int(sdr_ppm)))
+
         _safe_set_combo(self.ittristate_house, settings.get('ittristate_house'))
         _safe_set_combo(self.ittristate_group, settings.get('ittristate_group'))
         _safe_set_combo(self.ittristate_channel, settings.get('ittristate_channel'))
@@ -564,7 +698,11 @@ class RFMTestApp:
             print('Stopped SDR')
             return
 
-        self.sdr_runner = IntegratedSdrRunner(center_freq)
+        try:
+            ppm = int(self.sdr_ppm.get())
+        except ValueError:
+            ppm = 0
+        self.sdr_runner = IntegratedSdrRunner(center_freq, ppm_correction=ppm)
         if self.sdr_runner.start():
             self._start_sdr_plot(center_freq)
             self.sdrbtn.config(text='Stop SDR')
@@ -573,31 +711,91 @@ class RFMTestApp:
             self.sdr_runner = None
 
     def _start_sdr_plot(self, center_freq):
-        if plt is None:
+        if plt is None or Slider is None:
             return
         self._stop_sdr_plot()
         plt.ion()
-        self.sdr_fig, self.sdr_ax = plt.subplots(figsize=(10, 5))
+        self.sdr_fig = plt.figure(figsize=(10, 7.5))
+        self.sdr_fig.subplots_adjust(bottom=0.2, hspace=0.6)
+        
+        # Position window to the right of main window
+        self.root.update_idletasks()
+        main_x = self.root.winfo_x()
+        main_y = self.root.winfo_y()
+        main_width = self.root.winfo_width()
+        
+        try:
+            mgr = self.sdr_fig.canvas.manager
+            if mgr and hasattr(mgr, 'window'):
+                mgr.window.geometry(f"+{main_x + main_width + 20}+{main_y}")
+        except Exception:
+            pass
+        
+        # Spectrum plot
+        self.sdr_ax = self.sdr_fig.add_subplot(211)
         self.sdr_line, = self.sdr_ax.plot([], [], lw=1.0)
-        self.sdr_offset_text = self.sdr_ax.text(
+        self.sdr_ax.set_title('Live Spectrum')
+        self.sdr_ax.set_xlabel('Frequency (MHz)')
+        self.sdr_ax.set_ylabel('Power (dB)')
+        half_plot_span_mhz = (self.sdr_span_hz / 2.0) / 1e6
+        self.sdr_ax.set_xlim((center_freq / 1e6) - half_plot_span_mhz, (center_freq / 1e6) + half_plot_span_mhz)
+        self.sdr_ax.set_ylim(PLOT_Y_MIN_DB, PLOT_Y_MAX_DB)
+        self.sdr_ax.grid(True, alpha=0.3)
+
+        # Offset gauge
+        self.sdr_gauge_ax = self.sdr_fig.add_subplot(212)
+        self.sdr_gauge_ax.set_xlim(-600, 600)
+        self.sdr_gauge_ax.set_ylim(-0.5, 1.5)
+        self.sdr_gauge_ax.set_xlabel('Offset (Hz)')
+        self.sdr_gauge_ax.set_title('Frequency Offset Gauge')
+        self.sdr_gauge_ax.set_yticks([])
+        
+        # Background bar (error range)
+        self.sdr_gauge_ax.axhspan(-0.1, 0.1, color='lightcoral', alpha=0.3, label='Error')
+        # Deadband zone
+        self.sdr_gauge_deadband_rect = self.sdr_gauge_ax.axvspan(-50, 50, ymin=0.2, ymax=0.8, color='lightgreen', alpha=0.4, label='Deadband ±50Hz')
+        
+        # Center line
+        self.sdr_gauge_ax.axvline(0, color='black', linewidth=2, linestyle='--', alpha=0.5)
+        
+        # Gauge bar (will be updated)
+        self.sdr_gauge_bar, = self.sdr_gauge_ax.plot([0], [0.5], 'o', markersize=12, color='blue', label='Offset')
+        self.sdr_gauge_value_text = self.sdr_gauge_ax.text(
             0.02,
-            0.96,
-            'offset_now: n/a',
-            transform=self.sdr_ax.transAxes,
+            0.92,
+            'Offset: n/a Hz',
+            transform=self.sdr_gauge_ax.transAxes,
             va='top',
             ha='left',
             fontsize=10,
             bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'),
         )
-        self.sdr_ax.set_title('Live Spectrum')
-        self.sdr_ax.set_xlabel('Frequency (MHz)')
-        self.sdr_ax.set_ylabel('Power (dB)')
-        half_plot_span_mhz = (PLOT_SPAN_HZ / 2.0) / 1e6
-        self.sdr_ax.set_xlim((center_freq / 1e6) - half_plot_span_mhz, (center_freq / 1e6) + half_plot_span_mhz)
-        self.sdr_ax.set_ylim(PLOT_Y_MIN_DB, PLOT_Y_MAX_DB)
-        self.sdr_ax.grid(True, alpha=0.3)
-        self.sdr_fig.tight_layout()
+        self.sdr_gauge_ax.legend(loc='upper right', fontsize=8)
+        self.sdr_gauge_ax.grid(True, alpha=0.2, axis='x')
+
+        self.sdr_slider_ax = self.sdr_fig.add_axes([0.2, 0.05, 0.6, 0.04])
+        self.sdr_span_slider = Slider(
+            self.sdr_slider_ax,
+            'Span (kHz)',
+            1.0,
+            75.0,
+            valinit=self.sdr_span_hz / 1e3,
+            valstep=1.0,
+            color='blue'
+        )
+        self.sdr_span_slider.on_changed(self._on_span_slider_change)
+        self.sdr_center_freq = center_freq
         self._update_sdr_plot()
+
+    def _on_span_slider_change(self, value):
+        self.sdr_span_hz = value * 1e3
+        if self.sdr_ax is not None and self.sdr_center_freq is not None:
+            half_plot_span_mhz = (self.sdr_span_hz / 2.0) / 1e6
+            self.sdr_ax.set_xlim(
+                (self.sdr_center_freq / 1e6) - half_plot_span_mhz,
+                (self.sdr_center_freq / 1e6) + half_plot_span_mhz
+            )
+            self.sdr_fig.canvas.draw_idle()
 
     def _update_sdr_plot(self):
         if self.sdr_runner is None or not self.sdr_runner.running:
@@ -610,13 +808,28 @@ class RFMTestApp:
             self.sdr_line.set_data(freq_mhz, power_db)
 
         if offset_now_khz is None:
-            self.sdr_offset_text.set_text('offset_now: n/a')
+            gauge_hz = 0
+            gauge_label = 'Offset: n/a Hz'
         else:
-            self.sdr_offset_text.set_text(f'offset_now: {offset_now_khz:+.1f} kHz')
+            gauge_hz = offset_now_khz * 1e3
+            gauge_label = f'Offset: {gauge_hz:+,.0f} Hz'
+
+        if self.sdr_gauge_value_text is not None:
+            self.sdr_gauge_value_text.set_text(gauge_label)
+        
+        # Update gauge bar position and color
+        if self.sdr_gauge_bar is not None:
+            self.sdr_gauge_bar.set_data([gauge_hz], [0.5])
+            # Color based on offset magnitude
+            if abs(gauge_hz) <= 50:
+                self.sdr_gauge_bar.set_color('green')
+            elif abs(gauge_hz) <= 250:
+                self.sdr_gauge_bar.set_color('orange')
+            else:
+                self.sdr_gauge_bar.set_color('red')
 
         self.sdr_fig.canvas.draw_idle()
-        self.sdr_fig.canvas.flush_events()
-        self.sdr_plot_after_id = self.root.after(100, self._update_sdr_plot)
+        self.sdr_plot_after_id = self.root.after(180, self._update_sdr_plot)
 
     def _stop_sdr_plot(self):
         if self.sdr_plot_after_id is not None:
@@ -634,6 +847,12 @@ class RFMTestApp:
         self.sdr_ax = None
         self.sdr_line = None
         self.sdr_offset_text = None
+        self.sdr_gauge_ax = None
+        self.sdr_gauge_bar = None
+        self.sdr_gauge_value_text = None
+        self.sdr_gauge_deadband_rect = None
+        self.sdr_span_slider = None
+        self.sdr_slider_ax = None
 
     def on_close(self):
         self.auto_calib_stop_event.set()
@@ -721,14 +940,14 @@ class RFMTestApp:
         last_ts = time.monotonic()
         iterations = 0
         max_iterations = 600
-        kp_hz_per_step = 600.0
-        max_step = 20
-        deadband_hz = 250.0
+        kp_hz_per_step = 200.0
+        max_step = 40
+        deadband_hz = 50.0
 
         try:
             while not self.auto_calib_stop_event.is_set() and iterations < max_iterations:
                 samples = []
-                for _ in range(10):
+                for _ in range(5):
                     if self.auto_calib_stop_event.is_set():
                         break
                     self.txtest()
@@ -762,15 +981,16 @@ class RFMTestApp:
                     )
                     return
 
-                step = int(round(abs(avg_if_error_hz) / kp_hz_per_step))
-                step = max(1, min(max_step, step))
-
-                if avg_if_error_hz > 0:
-                    new_fcorr = current_fcorr + step
-                elif avg_if_error_hz < 0:
-                    new_fcorr = current_fcorr - step
+                step = int(round(-avg_if_error_hz / kp_hz_per_step))
+                if step == 0:
+                    # If rounding resulted in 0, preserve the original sign
+                    step = -1 if avg_if_error_hz > 0 else 1
+                elif step > 0:
+                    step = min(step, max_step)
                 else:
-                    new_fcorr = current_fcorr
+                    step = max(step, -max_step)
+
+                new_fcorr = current_fcorr + step
 
                 new_fcorr = max(-500, min(500, new_fcorr))
                 if new_fcorr == current_fcorr:
@@ -862,8 +1082,18 @@ class RFMTestApp:
         }
         s = json.dumps(data)
         url = 'http://' + self.ip + '/config'
-        r = requests.post(url, data=s)
-        print(f'Save radio setup {s}: {r.status_code} {r.text}')
+        try:
+            r = requests.post(url, data=s, timeout=5)
+            body = r.text.strip()
+            if not body:
+                body = '<empty body>'
+            msg = f'Save setup -> POST {url} | status={r.status_code} | body={body}'
+            print(msg)
+            messagebox.showinfo('Save setup', f'Status: {r.status_code}\n\n{body}')
+        except requests.RequestException as exc:
+            msg = f'Save setup -> POST {url} failed: {exc}'
+            print(msg)
+            messagebox.showerror('Save setup failed', str(exc))
 
     def saveconfig(self):
         if self.freqband.current() == 1:
@@ -881,7 +1111,7 @@ class RFMTestApp:
                     "txPwr": 13,
                     "rxThresh": -85,
                     "appSettings": {
-                        "codecs": [0, 1, 2, 3, 4, 5]
+                        "codecs": [0, 2]
                     }
                 }
             }
@@ -900,16 +1130,26 @@ class RFMTestApp:
                     "txPwr": 13,
                     "rxThresh": -85,
                     "appSettings": {
-                        "rxmodes": 3,
-                        "interval": 15
+                        "rxmodes": [0, 1],
+                        "interval": 10
                     }
                 }
             }
         
         c = json.dumps(config)
         url = 'http://' + self.ip + '/config'
-        r = requests.post(url, data=c)
-        print(f'Save config {c}: {r.status_code} {r.text}')
+        try:
+            r = requests.post(url, data=c, timeout=5)
+            body = r.text.strip()
+            if not body:
+                body = '<empty body>'
+            msg = f'Save default config -> POST {url} | status={r.status_code} | body={body}'
+            print(msg)
+            messagebox.showinfo('Save default config', f'Status: {r.status_code}\n\n{body}')
+        except requests.RequestException as exc:
+            msg = f'Save default config -> POST {url} failed: {exc}'
+            print(msg)
+            messagebox.showerror('Save default config failed', str(exc))
 
     def send(self, param):
         url = F"http://{self.ip}/send/{param}"

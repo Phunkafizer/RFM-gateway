@@ -300,15 +300,21 @@ void Rfm69::writeFifo(const uint8_t *buf, uint8_t size) {
 
 void Rfm69::txTest(const uint32_t freq_hz, const int16_t f_corr, const int8_t pwr, const uint16_t baud) {
     setMode(MODE_FS);
-    writeReg16(RegPreambleMsb, 10<<8);
+    setTxPower(pwr);
+    setBitrate(500);
     this->f_corr = f_corr;
     setFreq(freq_hz);
-    setTxPower(pwr);
-    setBitrate(baud);
     writeReg(RegDataModul, 1<<3); // Packet mode, OOK
+    setReg(RegPacketConfig1, 0<<7, 1<<7); // fixed length
+    writeReg(RegPayloadLength, 62);
 
-    uint8_t data[] = {0x55};
-    send(data, sizeof(data), false);
+    digitalWrite(pinSS, LOW);
+    SPI.transfer(0x80 | RegFifo);
+    for (size_t i=0; i<62; i++)
+        SPI.transfer(0xff);
+
+    digitalWrite(pinSS, HIGH);
+    setMode(MODE_TX);
 }
 
 /**

@@ -1,11 +1,16 @@
 import shutil
 import gzip
 import os
+import sys
+import subprocess
 import time
 import webbrowser
 from serial.tools import list_ports
 import requests
+
+subprocess.check_call([sys.executable, "-m", "pip", "install", "minify_html"])
 import minify_html
+
 Import("env")
 
 def copy_html(source, target, varname, env):

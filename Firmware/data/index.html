@@ -88,8 +88,76 @@
         }
 
         button, input::file-selector-button, input[type="submit"] {
-            padding: 6px 9px;
+            padding: 7px 12px;
             cursor: pointer;
+            border: 1px solid #1b4e7b;
+            border-radius: 7px;
+            background: linear-gradient(180deg, #e9f1fa 0%, #c9dbee 100%);
+            color: #0f2c47;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 6px rgba(0,0,0,0.2);
+            transition: transform 0.12s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+        }
+
+        button:hover:not(:disabled),
+        input::file-selector-button:hover:not(:disabled),
+        input[type="submit"]:hover:not(:disabled) {
+            border-color: #1a73e8;
+            background: linear-gradient(180deg, #f4f8fd 0%, #d8e7f7 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 10px rgba(0,0,0,0.24);
+            transform: translateY(-1px);
+        }
+
+        button:active:not(:disabled),
+        input::file-selector-button:active:not(:disabled),
+        input[type="submit"]:active:not(:disabled) {
+            transform: translateY(0);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        button:disabled,
+        input::file-selector-button:disabled,
+        input[type="submit"]:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: saturate(0.75);
+        }
+
+        .btn-primary {
+            border-color: #1a73e8;
+            background: linear-gradient(180deg, #3e9bff 0%, #1d73dc 100%);
+            color: #f4f9ff;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(180deg, #53a8ff 0%, #2a82e8 100%);
+            border-color: #0f5dc7;
+        }
+
+        .btn-neutral {
+            border-color: #5e7186;
+            background: linear-gradient(180deg, #eef2f6 0%, #d3dce6 100%);
+            color: #20354a;
+            text-shadow: none;
+        }
+
+        .btn-neutral:hover:not(:disabled) {
+            background: linear-gradient(180deg, #f8fbff 0%, #e0e8f2 100%);
+            border-color: #3f5a77;
+        }
+
+        .btn-danger {
+            border-color: #9d3025;
+            background: linear-gradient(180deg, #eb6b5c 0%, #cf4335 100%);
+            color: #fff7f5;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: linear-gradient(180deg, #f07a6c 0%, #d85243 100%);
+            border-color: #872318;
         }
 
         .btnbar {
@@ -100,10 +168,7 @@
         }
 
         .tab button {
-            border-radius: 3px;
-            background-color: #DDD;
-            color: #00274f;
-            border: 1px solid #00274f;
+            min-width: 88px;
         }
 
         #navi {
@@ -116,30 +181,69 @@
 
         #navi button {
             border-radius: 4px 4px 0 0;
-            background-color: transparent;
+            background: linear-gradient(180deg, rgba(10,38,66,0.9) 0%, rgba(7,28,49,0.92) 100%);
             font-size: 12px;
-            font-weight: 600;
-            color: #8aaccc;
-            border: none;
+            font-weight: 700;
+            color: #d7e9ff;
+            border: 1px solid #2d5375;
+            border-bottom: none;
             padding: 7px 13px;
             letter-spacing: 0.04em;
-            transition: color 0.15s, background-color 0.15s;
+            text-transform: uppercase;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.35);
+            transition: color 0.15s, background-color 0.15s, box-shadow 0.15s;
         }
 
         #navi button:hover:not(.active) {
-            color: #ddeeff;
-            background-color: rgba(255,255,255,0.08);
+            color: #ffffff;
+            background: linear-gradient(180deg, rgba(23,75,123,0.98) 0%, rgba(17,58,95,0.98) 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.16);
         }
 
         #navi button.active {
-            background-color: #acb3bb;
-            color: #00274f;
+            background: linear-gradient(180deg, #ecf4ff 0%, #d6e8fb 100%);
+            color: #08233e;
             font-weight: 700;
+            border-color: #5f89af;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.95);
         }
 
         input[type=text], input[type=password], select {
-            padding: 6px 2px;
             width: 90%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid #4f5f70;
+            border-radius: 6px;
+            background: linear-gradient(180deg, #eef3f8 0%, #dfe7ef 100%);
+            color: #0f2236;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 1px 2px rgba(0,0,0,0.15);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+        }
+
+        input[type=text]::placeholder,
+        input[type=password]::placeholder {
+            color: #5e7287;
+            opacity: 0.95;
+        }
+
+        input[type=text]:focus,
+        input[type=password]:focus,
+        select:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.25), inset 0 1px 0 rgba(255,255,255,0.85);
+            background: #f4f8fc;
+        }
+
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: linear-gradient(45deg, transparent 50%, #29425c 50%), linear-gradient(135deg, #29425c 50%, transparent 50%), linear-gradient(180deg, #eef3f8 0%, #dfe7ef 100%);
+            background-position: calc(100% - 16px) calc(50% - 2px), calc(100% - 11px) calc(50% - 2px), 0 0;
+            background-size: 5px 5px, 5px 5px, 100% 100%;
+            background-repeat: no-repeat;
+            padding-right: 28px;
         }
 
         input[type=checkbox] {
@@ -159,15 +263,50 @@
             padding: 1em;
         }
 
+        .tab.tab-enter {
+            animation: tab-enter 0.18s ease-out;
+        }
+
+        @keyframes tab-enter {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         fieldset {
-            border: 2px solid #323a42;
-            border-radius: 5px;
+            border: 1px solid #445a70;
+            border-radius: 8px;
             padding: 1em;
             margin-bottom: 1em;
+            background: linear-gradient(180deg, rgba(228,234,241,0.92) 0%, rgba(211,220,230,0.92) 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 8px rgba(0,0,0,0.15);
         }
 
         fieldset > div {
-            margin-bottom: 1em;
+            margin-bottom: 0.85em;
+        }
+
+        fieldset > div:last-child {
+            margin-bottom: 0;
+        }
+
+        fieldset .row {
+            margin-bottom: 0.7em;
+        }
+
+        fieldset .row:last-child {
+            margin-bottom: 0;
+        }
+
+        fieldset h3 {
+            margin-bottom: 0.35em;
+            color: #1a2f44;
+            font-weight: 700;
         }
 
         .slider {
@@ -184,9 +323,15 @@
 
         legend {
             font-size: 14px;
-            color: #323a42;
-            padding: 0.2em 0.5em;
-            border: 2px solid #323a42;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #e7eef7;
+            padding: 0.28em 0.75em;
+            border: 1px solid #1a73e8;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #12304d 0%, #1e4c79 100%);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
         }
 
         div.col50 {
@@ -203,6 +348,142 @@
             content: "";
             display: table;
             clear: both;
+        }
+
+        #scanresults {
+            margin-top: 0.5em;
+            padding: 0.65em;
+            border: 1px solid #6f8298;
+            border-radius: 8px;
+            background: linear-gradient(180deg, rgba(240,245,251,0.9) 0%, rgba(225,233,242,0.9) 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 1px 4px rgba(0,0,0,0.12);
+        }
+
+        #scanresults table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0 6px;
+            margin-bottom: 0.35em;
+        }
+
+        #scanresults th {
+            text-align: left;
+            padding: 0 8px 4px;
+            font-size: 11px;
+            color: #355067;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        #scanresults th:nth-child(2),
+        #scanresults td:nth-child(2) {
+            width: 86px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        #scanresults th:nth-child(3),
+        #scanresults td:nth-child(3) {
+            width: 108px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        #scanresults th:first-child,
+        #scanresults td:first-child {
+            width: auto;
+        }
+
+        #scanresults td {
+            background: rgba(255,255,255,0.72);
+            padding: 7px 8px;
+            color: #13293f;
+            border-top: 1px solid rgba(93,117,141,0.35);
+            border-bottom: 1px solid rgba(93,117,141,0.35);
+        }
+
+        #scanresults tbody tr {
+            cursor: pointer;
+        }
+
+        #scanresults tbody tr:hover td {
+            background: rgba(233,243,255,0.92);
+        }
+
+        #scanresults tbody tr:focus td {
+            background: rgba(224,238,255,0.95);
+            outline: 1px solid #5c8fc3;
+        }
+
+        #scanresults tbody tr.selected td {
+            background: rgba(208,228,251,0.98);
+            border-top-color: rgba(49,98,151,0.65);
+            border-bottom-color: rgba(49,98,151,0.65);
+        }
+
+        #scanresults tbody tr.no-results {
+            cursor: default;
+        }
+
+        #scanresults tbody tr.no-results:hover td {
+            background: rgba(255,255,255,0.72);
+        }
+
+        #scanresults td:first-child {
+            border-left: 1px solid rgba(93,117,141,0.35);
+            border-top-left-radius: 7px;
+            border-bottom-left-radius: 7px;
+        }
+
+        #scanresults td:last-child {
+            border-right: 1px solid rgba(93,117,141,0.35);
+            border-top-right-radius: 7px;
+            border-bottom-right-radius: 7px;
+        }
+
+        .chan-pill,
+        .rssi-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+        }
+
+        .chan-pill {
+            background: #dce7f4;
+            color: #214361;
+            border: 1px solid #9eb4cb;
+        }
+
+        .rssi-pill {
+            border: 1px solid;
+        }
+
+        .rssi-pill.excellent {
+            background: #d7f4e4;
+            border-color: #7bc39b;
+            color: #105c34;
+        }
+
+        .rssi-pill.good {
+            background: #e8f5d7;
+            border-color: #a8c983;
+            color: #3b5e15;
+        }
+
+        .rssi-pill.fair {
+            background: #fff2d8;
+            border-color: #d7b67f;
+            color: #7a4f17;
+        }
+
+        .rssi-pill.weak {
+            background: #ffe0d8;
+            border-color: #d59a8c;
+            color: #7a2d1f;
         }
 
         #footer {
@@ -277,6 +558,62 @@
         #toast.error {
             background: #c0392b;
         }
+
+        .copyable-value {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 2px;
+        }
+
+        .copyable-value:hover {
+            color: #0b3f73;
+        }
+
+        @media (max-width: 760px) {
+            div#wrapper {
+                margin: 0;
+                max-width: 100%;
+                border-radius: 0;
+            }
+
+            #navi {
+                flex-wrap: wrap;
+                gap: 4px;
+                padding: 5px;
+            }
+
+            #navi button {
+                border-radius: 6px;
+                border-bottom: 1px solid #2d5375;
+                flex: 1 1 calc(50% - 4px);
+                min-width: 120px;
+            }
+
+            div.col50,
+            div.col25 {
+                float: none;
+                width: 100%;
+            }
+
+            input[type=text],
+            input[type=password],
+            select,
+            .slider {
+                width: 100%;
+            }
+
+            button,
+            input::file-selector-button,
+            input[type="submit"] {
+                min-height: 38px;
+            }
+
+            .btnbar {
+                flex-wrap: wrap;
+                gap: 0.6em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -300,8 +637,8 @@
         </div>
 
         <div id="tab-status" class="tab" title="status" hidden>
-            <div class="panel">
-                <h2>WiFi</h2>
+            <fieldset>
+                <legend>WiFi</legend>
                 <div class="row">
                     <div class="col50">
                         <h3>client status</h3>
@@ -332,10 +669,10 @@
                     <div class="col50">
                     </div>
                 </div>
-            </div>
+            </fieldset>
 
-            <div class="panel">
-                <h2>System</h2>
+            <fieldset>
+                <legend>System</legend>
                 <div class="row">
                     <div class="col50">
                         <h3>firmware</h3>
@@ -352,7 +689,7 @@
                         <span id="radio_model"></span>
                     </div>
                 </div>
-            </div>
+            </fieldset>
         </div>
 
         <div id="tab-settings" class="tab" title="settings" hidden>
@@ -385,7 +722,7 @@
                     <input id="inpf_corr" type="text" value="0">
                 </div>
                 <div>
-                    <button id="btnsaveradiocfg" >save</button>
+                    <button id="btnsaveradiocfg" class="btn-primary">save</button>
                 </div>
                 <div>
                     <h3>frequency / Hz</h3>
@@ -400,22 +737,30 @@
                     <input id="inpbitrate" type="text" value="5000">
                 </div>
                 <div>
-                    <button id="btntxtest">TX test</button>
+                    <button id="btntxtest" class="btn-neutral">TX test</button>
                 </div>
             </fieldset>
 
             <fieldset>
                 <legend>WiFi</legend>
 
+                <div class="row">
+                    <div class="col50">
+                        <h3>hostname (mDNS)</h3>
+                        <input id="wifi_hostname" type="text" placeholder="rfm-gateway">
+                    </div>
+                    <div class="col50">
+                    </div>
+                </div>
+
                 <div class="btnbar">
-                    <button id="btnscan">scan</button>
+                    <button id="btnscan" class="btn-primary">scan</button>
                 </div>
 
                 <div hidden id="scanresults">
                     <table>
                         <thead>
                             <tr>
-                                <th></th>
                                 <th>SSID</th>
                                 <th>channel</th>
                                 <th>RSSI</th>
@@ -435,7 +780,7 @@
                         </div>
                     </div>
                     <div class="btnbar">
-                        <button id="btnsavewifi">save WiFi settings</button>
+                        <button id="btnsavewifi" class="btn-primary">save WiFi settings</button>
                     </div>
                 </div>
             </fieldset>
@@ -471,7 +816,7 @@
 
                 <div>
                     <h3>basetopic</h3>
-                    <input id="mqtt_basetopic" type="text">
+                    <input id="mqtt_basetopic" type="text" placeholder="home/rfm-gateway">
                 </div>
             </fieldset>
 
@@ -480,8 +825,8 @@
                 <div>
                     <h3>Firmware <a href="https://github.com/Phunkafizer/RFM-gateway/releases/latest" target="_blank" style="font-size:11px;font-weight:normal;">latest release ↗</a></h3>
                     <form id="form_upload" method='POST' enctype='multipart/form-data'>
-                        <input id="inp_file" type='file' accept='.bin,.bin.gz' name='firmware'>
-                        <input id="btn_upload" type='submit' value='Update Firmware' disabled>
+                        <input id="inp_file" type='file' accept='.bin,.bin.gz' name='firmware' hidden>
+                        <button id="btn_upload" type='button' class="btn-primary">download...</button>
                         <div id="progressDiv" class="progress" hidden>
                             <span class="progress-bar" id="progressBar" style="width: 0%"></span>
                             <span id="progressText"></span>
@@ -593,11 +938,11 @@
             </fieldset>
 
             <div class="btnbar">
-                <button id="savebtn">save</button>
-                <button id="rebootbtn">reboot</button>
-                <button id="btnimport">import</button>
+                <button id="savebtn" class="btn-primary">save</button>
+                <button id="rebootbtn" class="btn-danger">reboot</button>
+                <button id="btnimport" class="btn-neutral">import</button>
                 <input id="inp_import" type="file" accept=".json" hidden>
-                <button id="btnexport">export</button>
+                <button id="btnexport" class="btn-neutral">export</button>
                 <select id="selexport">
                     <option value="config">config</option>
                     <option value="status">status</option>
@@ -610,7 +955,7 @@
             <div id="console"></div>
             <div id="logstatus"></div>
             <div class="btnbar">
-                <button id="btnclearlog">clear log</button>
+                <button id="btnclearlog" class="btn-neutral">clear log</button>
             </div>
         </div>
 
@@ -648,6 +993,48 @@
             t._timer = setTimeout(() => t.classList.remove("show"), 2500);
         }
 
+        function copyTextToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText)
+                return navigator.clipboard.writeText(text);
+
+            return new Promise((resolve, reject) => {
+                const tmp = _$("textarea");
+                tmp.value = text;
+                tmp.setAttribute("readonly", "");
+                tmp.style.position = "fixed";
+                tmp.style.opacity = "0";
+                document.body.appendChild(tmp);
+                tmp.select();
+                try {
+                    document.execCommand("copy");
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                } finally {
+                    document.body.removeChild(tmp);
+                }
+            });
+        }
+
+        function makeStatusValuesCopyable() {
+            const ids = ["#ipaddress", "#macaddress", "#hostname", "#stassid"];
+            ids.forEach((selector) => {
+                const ele = _(selector);
+                if (!ele)
+                    return;
+                ele.classList.add("copyable-value");
+                ele.title = "Click to copy";
+                ele.onclick = () => {
+                    const value = (ele.innerText || "").trim();
+                    if (!value)
+                        return;
+                    copyTextToClipboard(value)
+                        .then(() => showToast("Copied: " + value))
+                        .catch(() => showToast("Copy failed", true));
+                };
+            });
+        }
+
         function scanWifi() {
             const xhrwifi = new XMLHttpRequest();
             xhrwifi.onload = (ev) => {
@@ -658,32 +1045,62 @@
                     return;
                 }
 
-                scanobj.results.forEach(element => {
+                const results = Array.isArray(scanobj.results) ? scanobj.results : [];
+                results.sort((a, b) => (b.rssi ?? -999) - (a.rssi ?? -999));
+
+                if (results.length === 0) {
                     let newrow = _$("tr");
+                    newrow.classList.add("no-results");
+                    let td = _$("td");
+                    td.colSpan = 3;
+                    td.innerText = "No networks found.";
+                    newrow.appendChild(td);
+                    scanbody.appendChild(newrow);
+                }
+
+                results.forEach(element => {
+                    let newrow = _$("tr");
+                    newrow.classList.add("scan-row");
+                    newrow.tabIndex = 0;
                     scanbody.appendChild(newrow);
 
-                    let td = _$("td");
-                    let inp = _$("input");
-                    inp.type = "radio";
-                    inp.name = "ssid";
-                    inp.value = element.ssid;
-                    inp.onclick = (ev) => {
-                        _("#wifissid").value = ev.target.value;
+                    const selectRow = () => {
+                        _("#wifissid").value = element.ssid || "";
+                        for (let row of __("#scanbody tr.scan-row"))
+                            row.classList.remove("selected");
+                        newrow.classList.add("selected");
                     };
-                    td.appendChild(inp);
+
+                    newrow.onclick = selectRow;
+                    newrow.onkeydown = (ev) => {
+                        if (ev.key === "Enter" || ev.key === " ") {
+                            ev.preventDefault();
+                            selectRow();
+                        }
+                    };
+
+                    let td = _$("td");
+                    td.innerText = element.ssid || "<hidden SSID>";
+                    newrow.appendChild(td);
+
+                    const rssi = Number(element.rssi);
+                    const rssiClass = rssi >= -55 ? "excellent" : rssi >= -67 ? "good" : rssi >= -75 ? "fair" : "weak";
+
+                    td = _$("td");
+                    td.innerHTML = '<span class="chan-pill">CH ' + element.channel + '</span>';
                     newrow.appendChild(td);
 
                     td = _$("td");
-                    td.innerText = element.ssid;
-                    newrow.appendChild(td);
-                    td = _$("td");
-                    td.innerText = element.channel;
-                    newrow.appendChild(td);
-                    td = _$("td");
-                    td.innerText = element.rssi;
+                    td.innerHTML = '<span class="rssi-pill ' + rssiClass + '">' + element.rssi + ' dBm</span>';
                     newrow.appendChild(td);    
                 });
                 _("#btnscan").disabled = false;
+                showToast("WiFi scan finished: " + results.length + " network(s)");
+            };
+
+            xhrwifi.onerror = () => {
+                _("#btnscan").disabled = false;
+                showToast("WiFi scan failed.", true);
             };
 
             xhrwifi.open("GET", "scan");
@@ -730,6 +1147,7 @@
 
                 if ("config" in cfg) {
                     let config = cfg["config"];
+                    _("#wifi_hostname").value = config["hostname"] ?? "";
                     if ("mqtt" in config) {
                         let mqtt = config["mqtt"];
                         _("#mqtt_host").value = mqtt["host"];
@@ -864,6 +1282,25 @@
         function buildNavi() {
             const navi = _("#navi");
             navi.innerHTML = "";
+
+            function activateTab(targetId, button) {
+                for (let t of __("div.tab"))
+                    t.hidden = true;
+
+                const targetTab = _("#" + targetId);
+                if (targetTab) {
+                    targetTab.hidden = false;
+                    targetTab.classList.remove("tab-enter");
+                    void targetTab.offsetWidth;
+                    targetTab.classList.add("tab-enter");
+                }
+
+                for (let b of __("button.navi-item"))
+                    b.classList.remove("active");
+                if (button)
+                    button.classList.add("active");
+            }
+
             for (let tab of __("div.tab", _("#wrapper"))) {
                 const tabId = tab.getAttribute("id");
                 const tabTitle = tab.getAttribute("title");
@@ -873,12 +1310,7 @@
                 btn.setAttribute("target", tabId);
                 btn.textContent = tabTitle;
                 btn.onclick = (ev) => {
-                    for (let t of __("div.tab"))
-                        t.hidden = true;
-                    _("#" + ev.target.getAttribute("target")).hidden = false;
-                    for (let b of __("button.navi-item"))
-                        b.classList.remove("active");
-                    ev.target.classList.add("active");
+                    activateTab(ev.target.getAttribute("target"), ev.target);
                 };
                 navi.appendChild(btn);
             }
@@ -910,11 +1342,14 @@
                 .catch(() => {})
                 .finally(() => { buildNavi(); });
 
+            makeStatusValuesCopyable();
+
             _("#btnscan").onclick = (ev) => {
                 _("#scanbody").innerHTML = "";
                 _("#wifipassword").value = "";
                 _("#scanresults").hidden = false;
                 _("#btnscan").disabled = true;
+                showToast("WiFi scan in progress...");
                 scanWifi();
             }
 
@@ -938,6 +1373,7 @@
                 const iApp = parseInt(_("#selapplication").value);
                 let param = {
                     "config": {
+                        "hostname": _("#wifi_hostname").value.trim(),
                         "mqtt": {
                             "host": _("#mqtt_host").value,
                             "port": parseInt(_("#mqtt_port").value),
@@ -1061,6 +1497,9 @@
                 ev.preventDefault();
 
                 var file = _("#inp_file").files[0];
+                if (!file)
+                    return;
+
                 var formdata = new FormData();
                 formdata.append(_("#inp_file").name, file, file.name);
                 const ajaxUpl = new XMLHttpRequest();
@@ -1095,7 +1534,12 @@
 
             _("#inp_file").onchange = (ev) => {
                 var file = ev.target.files[0];
-                _("#btn_upload").disabled = !(file && file.name);
+                if (file && file.name)
+                    _("#form_upload").requestSubmit();
+            };
+
+            _("#btn_upload").onclick = (ev) => {
+                _("#inp_file").click();
             };
 
             _("#selapplication").onchange = (ev) => {

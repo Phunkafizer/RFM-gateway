@@ -49,7 +49,6 @@ PubSubClient mqtt;
 bool rebootFlag = false;
 DNSServer dnsServer;
 String hostname;
-
 String mqttHost;
 String mqttUser;
 String mqttPass;
@@ -110,6 +109,18 @@ bool loadRadioSetup() {
 }
 
 void setConfig(const JsonObject &obj) {
+    if (!obj[F("hostname")].isNull()) {
+        hostname = obj[F("hostname")].as<String>();
+        WiFi.setHostname(hostname.c_str());
+
+        if (WiFi.localIP().isSet()) {
+            MDNS.close();
+            if (!MDNS.begin(hostname.c_str())) {
+                SDBGLN("mDNS restart failed");
+            }
+        }
+    }
+
     if (!obj[F("mqtt")].isNull()) {
         const JsonObject &jMqtt = obj[F("mqtt")];
         if (mqtt.connected())
@@ -206,6 +217,10 @@ void wiFiEvent(WiFiEvent_t event) {
 
     if (event == WIFI_EVENT_STAMODE_GOT_IP) {
         WiFi.setHostname(hostname.c_str());
+        MDNS.close();
+        if (!MDNS.begin(hostname.c_str())) {
+            SDBGLN("mDNS start failed");
+        }
     }
 
     if (event == WIFI_EVENT_STAMODE_DISCONNECTED) {
@@ -257,9 +272,10 @@ void setup() {
         }
     }
 
-    WiFi.begin();
     Serial.begin(76800);
     SPI.begin();
+
+    hostname = FPSTR(HOSTNAME);
     
     if (!loadRadioSetup())
         apMode = true;
@@ -282,8 +298,12 @@ void setup() {
         f.close();
     }
 
-    hostname = FPSTR(HOSTNAME); // TODO make this configurable
-    MDNS.begin(hostname.c_str());
+    WiFi.setHostname(hostname.c_str());
+    WiFi.begin();
+
+    if (!MDNS.begin(hostname.c_str())) {
+        SDBGLN("mDNS start failed");
+    }
 
     discJson.set(nullptr);
     
@@ -571,6 +591,8 @@ void setup() {
 
 
 void loop() {
+    MDNS.update();
+
     mqtt.loop();
 
     if (WiFi.localIP().isSet()) {
