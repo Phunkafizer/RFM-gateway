@@ -160,6 +160,22 @@
             border-color: #872318;
         }
 
+        .btn-subtle {
+            border-color: #73879c;
+            background: linear-gradient(180deg, #eef3f8 0%, #dde6ef 100%);
+            color: #35516b;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.12);
+        }
+
+        .btn-subtle:hover:not(:disabled) {
+            border-color: #5c7490;
+            background: linear-gradient(180deg, #f5f9fd 0%, #e6edf5 100%);
+            color: #243f58;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 5px rgba(0,0,0,0.14);
+        }
+
         .btnbar {
             display: flex;
             justify-content: center;
@@ -247,7 +263,51 @@
         }
 
         input[type=checkbox] {
-            margin: 0 0.5em 0.5em 0;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 34px;
+            height: 18px;
+            border: 1px solid #6f8298;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #eef3f8 0%, #dce5ef 100%);
+            position: relative;
+            cursor: pointer;
+            margin: 0 0.5em 0.45em 0;
+            vertical-align: middle;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+            transition: background 0.16s ease, border-color 0.16s ease;
+        }
+
+        input[type=checkbox]::before {
+            content: "";
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(180deg, #ffffff 0%, #e7edf4 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+            transition: transform 0.16s ease;
+        }
+
+        input[type=checkbox]:checked {
+            border-color: #1a73e8;
+            background: linear-gradient(180deg, #53a8ff 0%, #2a82e8 100%);
+        }
+
+        input[type=checkbox]:checked::before {
+            transform: translateX(16px);
+        }
+
+        input[type=checkbox]:focus-visible {
+            outline: 2px solid rgba(26,115,232,0.35);
+            outline-offset: 1px;
+        }
+
+        input[type=checkbox]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         div#wrapper {
@@ -307,6 +367,49 @@
             margin-bottom: 0.35em;
             color: #1a2f44;
             font-weight: 700;
+        }
+
+        .field-label {
+            margin-bottom: 0.3em;
+            color: #2c4862;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        #rc433_tab > h3.field-label,
+        #rc433_tab .rc433_params > div > h3.field-label {
+            margin-bottom: 0.45em;
+        }
+
+        #rc433_tab > select,
+        #rc433_tab .rc433_params > div > select,
+        #rc433_tab .rc433_params > div > input[type=text] {
+            margin-bottom: 0.55em;
+        }
+
+        #rc433_tab .rc433_params > div {
+            margin-bottom: 0.75em;
+        }
+
+        #rc433_tab .rc433_params > div:last-child {
+            margin-bottom: 0;
+        }
+
+        #tab-status span {
+            display: block;
+            min-width: 0;
+            box-sizing: border-box;
+            padding: 1px 0 2px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: #16334e;
+            font-weight: 600;
+            line-height: 1.45;
+            word-break: break-word;
+            letter-spacing: 0.01em;
         }
 
         .slider {
@@ -512,6 +615,50 @@
             padding: 0 0.5em;
         }
 
+        #tab-log .btnbar {
+            justify-content: flex-end;
+            padding-top: 0;
+        }
+
+        #tab-log .btnbar button {
+            min-width: 0;
+            padding: 5px 9px;
+            font-size: 11px;
+        }
+
+        .log-scroll-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25em;
+            color: #35516b;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            user-select: none;
+        }
+
+        .log-scroll-toggle input[type=checkbox] {
+            margin: 0;
+        }
+
+        .log-conn-state {
+            display: none;
+            margin-right: auto;
+            padding: 3px 8px;
+            border: 1px solid #b4853c;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #fff0cf 0%, #ffe2a9 100%);
+            color: #7a4f17;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .log-conn-state.show {
+            display: inline-block;
+        }
+
         #console div {
             font-family: "Lucida Console", "Courier New", monospace;
         }
@@ -520,15 +667,6 @@
             border-left: 3px solid #1a73e8;
             margin: 6px 0 2px;
             padding-left: 6px;
-        }
-
-        #logstatus {
-            height: 0.5em;
-            background-color: red;
-        }
-
-        #logstatus.connected {
-            background-color: green;
         }
 
         #toast {
@@ -563,7 +701,9 @@
             cursor: pointer;
             text-decoration: underline;
             text-decoration-style: dotted;
-            text-underline-offset: 2px;
+            text-underline-offset: 3px;
+            text-decoration-thickness: 1px;
+            transition: color 0.12s ease;
         }
 
         .copyable-value:hover {
@@ -641,32 +781,34 @@
                 <legend>WiFi</legend>
                 <div class="row">
                     <div class="col50">
-                        <h3>client status</h3>
+                        <h3 class="field-label">Client Status</h3>
                         <span id="wifistatus"></span>
                     </div>
                     <div class="col50">
-                        <h3>MAC address</h3>
+                        <h3 class="field-label">MAC Address</h3>
                         <span id="macaddress"></span>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col50">
-                        <h3>IP address</h3>
+                        <h3 class="field-label">IP Address</h3>
                         <span id="ipaddress"></span>
                     </div>
                     <div class="col50">
-                        <h3>hostname</h3>
+                        <h3 class="field-label">Hostname</h3>
                         <span id="hostname"></span>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col50">
-                        <h3>SSID</h3>
+                        <h3 class="field-label">SSID</h3>
                         <span id="stassid"></span>
                     </div>
                     <div class="col50">
+                        <h3 class="field-label">MQTT</h3>
+                        <span id="mqttconnected"></span>
                     </div>
                 </div>
             </fieldset>
@@ -675,17 +817,17 @@
                 <legend>System</legend>
                 <div class="row">
                     <div class="col50">
-                        <h3>firmware</h3>
+                        <h3 class="field-label">Firmware</h3>
                         <span id="fw_version"></span>
                     </div>
                     <div class="col50">
-                        <h3>uptime</h3>
+                        <h3 class="field-label">Uptime</h3>
                         <span id="uptime"></span>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col50">
-                        <h3>radio model</h3>
+                        <h3 class="field-label">Radio Model</h3>
                         <span id="radio_model"></span>
                     </div>
                 </div>
@@ -697,7 +839,7 @@
                 <legend>radio setup</legend>
 
                 <div>
-                    <h3>radio module type</h3>
+                    <h3 class="field-label">radio module type</h3>
                     <select id="selradiotype">
                         <option value="0000">RFM69CW-315S2</option>
                         <option value="0001">RFM69CW-433S2</option>
@@ -718,22 +860,22 @@
                     </select>
                 </div>
                 <div>
-                    <h3>f_corr / F_STEP</h3>
+                    <h3 class="field-label">f_corr / F_STEP</h3>
                     <input id="inpf_corr" type="text" value="0">
                 </div>
                 <div>
                     <button id="btnsaveradiocfg" class="btn-primary">save</button>
                 </div>
                 <div>
-                    <h3>frequency / Hz</h3>
+                    <h3 class="field-label">frequency / Hz</h3>
                     <input id="inpfreq" type="text">
                 </div>
                 <div>
-                    <h3>tx power / dBm</h3>
+                    <h3 class="field-label">tx power / dBm</h3>
                     <input id="inptx_pwr" type="text" value="0">
                 </div>
                 <div>
-                    <h3>bitrate / bps</h3>
+                    <h3 class="field-label">bitrate / bps</h3>
                     <input id="inpbitrate" type="text" value="5000">
                 </div>
                 <div>
@@ -746,7 +888,7 @@
 
                 <div class="row">
                     <div class="col50">
-                        <h3>hostname (mDNS)</h3>
+                        <h3 class="field-label">hostname (mDNS)</h3>
                         <input id="wifi_hostname" type="text" placeholder="rfm-gateway">
                     </div>
                     <div class="col50">
@@ -771,11 +913,11 @@
                     </table>
                     <div class="row">
                         <div class="col50">
-                            <h3>SSID</h3>
+                            <h3 class="field-label">SSID</h3>
                             <input id="wifissid" type="text"/>
                         </div>
                         <div class="col50">
-                            <h3>password</h3>
+                            <h3 class="field-label">password</h3>
                             <input id="wifipassword" type="password"/>
                         </div>
                     </div>
@@ -790,32 +932,32 @@
 
                 <div class="row">
                     <div class="col50">
-                        <h3>host</h3>
+                        <h3 class="field-label">host</h3>
                         <input id="mqtt_host" type="text">
                     </div>
                     <div class="col25">
-                        <h3>port</h3>
+                        <h3 class="field-label">port</h3>
                         <input id="mqtt_port" type="text">
                     </div>
                     <div class="col25">
-                        <h3>TLS</h3>
+                        <h3 class="field-label">TLS</h3>
                         <input id="mqtt_tls" type="checkbox">
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col50">
-                        <h3>user</h3>
+                        <h3 class="field-label">user</h3>
                         <input id="mqtt_user" type="text">
                     </div>
                     <div class="col50">
-                        <h3>password</h3>
+                        <h3 class="field-label">password</h3>
                         <input id="mqtt_pass" type="text">
                     </div>
                 </div>
 
                 <div>
-                    <h3>basetopic</h3>
+                    <h3 class="field-label">basetopic</h3>
                     <input id="mqtt_basetopic" type="text" placeholder="home/rfm-gateway">
                 </div>
             </fieldset>
@@ -823,7 +965,7 @@
             <fieldset>
                 <legend>system</legend>
                 <div>
-                    <h3>Firmware <a href="https://github.com/Phunkafizer/RFM-gateway/releases/latest" target="_blank" style="font-size:11px;font-weight:normal;">latest release ↗</a></h3>
+                    <h3 class="field-label">Firmware <a href="https://github.com/Phunkafizer/RFM-gateway/releases/latest" target="_blank" style="font-size:11px;font-weight:normal;">latest release ↗</a></h3>
                     <form id="form_upload" method='POST' enctype='multipart/form-data'>
                         <input id="inp_file" type='file' accept='.bin,.bin.gz' name='firmware' hidden>
                         <button id="btn_upload" type='button' class="btn-primary">download...</button>
@@ -840,7 +982,7 @@
 
                 <div class="row">
                     <div class="col50">
-                        <h3>application</h3>
+                        <h3 class="field-label">application</h3>
                         <select id="selapplication">
                             <option id="app_433_rcpulse" disabled value="0">433 MHz RC pulse gateway</option>
                             <option id="app_868gw" disabled value="1">868 MHz sensor gateway</option>
@@ -848,25 +990,25 @@
                         </select>
                     </div>
                     <div class="col50">
-                        <h3>Frequency / MHz</h3>
+                        <h3 class="field-label">Frequency / MHz</h3>
                         <input id="rffreq" type="text" placeholder="868.300000">
                     </div>
                 </div>
                 <div class="row">
                     <div class="col50">
-                        <h3>Output power</h3>
+                        <h3 class="field-label">Output power</h3>
                         <input type="range" min="-18" max="13" value="13" class="slider" id="txPwrSlider">
                         <div><span id="txPwr">13 dBm</span></div>
                     </div>
                     <div class="col50">
-                        <h3>RX threshold</h3>
+                        <h3 class="field-label">RX threshold</h3>
                         <input type="range" min="-90" max="-40" value="-70" class="slider" id="rxThreshSlider">
                         <div><span id="rxThresh">-70 dBm</span></div>
                     </div>
                 </div>
 
                 <div class="appsettings" hidden>
-                    <h3>Codecs</h3>
+                    <h3 class="field-label">Codecs</h3>
                     <div class="row">
                         <div class="col50">
                             <input type="checkbox" class="codec" value="0" checked><span>Intertechno tristate</span>
@@ -892,7 +1034,7 @@
                 <div class="appsettings" hidden>
                     <div class="row">
                         <div class="col50">
-                            <h3>RX modes</h3>
+                            <h3 class="field-label">RX modes</h3>
                             <div>
                                 <input class="rxmode" type="checkbox"><span>TX21/TX25/TX27/TX29/TX37</span>
                             </div>
@@ -917,17 +1059,17 @@
                         </div>
 
                         <div class="col50">
-                            <h3>RX interval / s</h3>
+                            <h3 class="field-label">RX interval / s</h3>
                             <input id="gw868_interval" type="text">
                         </div>
                     </div>
                     <div class="row" id="gw868_custom_row" hidden>
                         <div class="col50">
-                            <h3>Preamble (hex bytes)</h3>
+                            <h3 class="field-label">Preamble (hex bytes)</h3>
                             <input id="gw868_preamble" type="text" placeholder="2D D4">
                         </div>
                         <div class="col50">
-                            <h3>Baudrate</h3>
+                            <h3 class="field-label">Baudrate</h3>
                             <input id="gw868_baudrate" type="text" placeholder="9579">
                         </div>
                     </div>
@@ -952,11 +1094,16 @@
         </div>
 
         <div id="tab-log" class="tab" title="log" hidden>
-            <div id="console"></div>
-            <div id="logstatus"></div>
             <div class="btnbar">
-                <button id="btnclearlog" class="btn-neutral">clear log</button>
+                <span id="log_ws_state" class="log-conn-state">Reconnecting...</span>
+                <button id="btnclearlog" class="btn-subtle">clear log</button>
+                <button id="btnlogdownload" class="btn-subtle">download log</button>
+                <label class="log-scroll-toggle" for="log_autoscroll">
+                    <input id="log_autoscroll" type="checkbox" checked>
+                    <span>scroll</span>
+                </label>
             </div>
+            <div id="console"></div>
         </div>
 
         <div id="footer">
@@ -968,7 +1115,8 @@
     <script>
         'use strict';
         let websocket = null;
-    let rfFrame = null;
+        let rfFrame = null;
+        let wsConnectedOnce = false;
 
         function _(query) {
             return document.querySelector(query);
@@ -1107,6 +1255,16 @@
             xhrwifi.send();
         }
 
+        function downloadCurrentLog() {
+            const lines = [...__("div", _("#console"))].map(d => d.innerText).join("\n");
+            const blob = new Blob([lines], { type: "text/plain" });
+            const a = _$("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "log.txt";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
         function getConfig() {
             const xhr = new XMLHttpRequest();
             xhr.onload = (ev) => {
@@ -1226,6 +1384,9 @@
                     _("#hostname").innerText = status.WiFi.hostname;
                     _("#stassid").innerText = status.WiFi.sta_ssid;
                 }
+
+                if ("mqtt" in status)
+                    _("#mqttconnected").innerText = status.mqtt.connected ? "connected" : "disconnected";
 
                 if ("system" in status) {
                     _("#fw_version").innerText = status.system.firmware;
@@ -1493,6 +1654,10 @@
                 _("#console").innerHTML = "";
             };
 
+            _("#btnlogdownload").onclick = () => {
+                downloadCurrentLog();
+            };
+
             _("#form_upload").onsubmit = (ev) => {
                 ev.preventDefault();
 
@@ -1602,13 +1767,7 @@
             _("#btnexport").onclick = () => {
                 const target = _("#selexport").value;
                 if (target === "log") {
-                    const lines = [...__("div", _("#console"))].map(d => d.innerText).join("\n");
-                    const blob = new Blob([lines], { type: "text/plain" });
-                    const a = _$("a");
-                    a.href = URL.createObjectURL(blob);
-                    a.download = "log.txt";
-                    a.click();
-                    URL.revokeObjectURL(a.href);
+                    downloadCurrentLog();
                 } else {
                     fetch("/" + target)
                         .then(r => r.json())
@@ -1628,6 +1787,25 @@
             getStatus();
 
             function connectWS() {
+                function autoScrollEnabled() {
+                    return _("#log_autoscroll")?.checked ?? true;
+                }
+
+                function setWsState(label) {
+                    const stateEle = _("#log_ws_state");
+                    if (!stateEle)
+                        return;
+
+                    if (label === "connected") {
+                        stateEle.classList.remove("show");
+                    } else {
+                        stateEle.textContent = label;
+                        stateEle.classList.add("show");
+                    }
+                }
+
+                setWsState(wsConnectedOnce ? "Reconnecting..." : "Connecting...");
+
                 function logws(msg) {
                     if (msg === "<div class='rfframe'>") {
                         rfFrame = _$('div');
@@ -1637,7 +1815,8 @@
                     if (msg === '</div>' && rfFrame) {
                         let cons = _("#console");
                         cons.append(rfFrame);
-                        cons.scrollTop = cons.scrollHeight;
+                        if (autoScrollEnabled())
+                            cons.scrollTop = cons.scrollHeight;
                         rfFrame = null;
                         return;
                     }
@@ -1648,17 +1827,19 @@
                     } else {
                         let cons = _("#console");
                         cons.append(e);
-                        cons.scrollTop = cons.scrollHeight;
+                        if (autoScrollEnabled())
+                            cons.scrollTop = cons.scrollHeight;
                     }
                 }
 
                 websocket = new WebSocket("ws");
 
                 websocket.onopen = (ev) => {
-                    _("#logstatus").classList.add('connected');
+                    wsConnectedOnce = true;
+                    setWsState("connected");
                 }
                 websocket.onclose = (ev) => {
-                    _("#logstatus").classList.remove('connected');
+                    setWsState(wsConnectedOnce ? "Reconnecting..." : "Connecting...");
                     setTimeout(function() {
                         connectWS();
                     }, 1000);
@@ -1668,7 +1849,7 @@
                 }
                 websocket.onerror = (ev) => {
                     logws("Error");
-                    _("#logstatus").classList.remove('connected');
+                    setWsState(wsConnectedOnce ? "Reconnecting..." : "Connecting...");
                     websocket.close();
                 }
             }

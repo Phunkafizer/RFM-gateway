@@ -2,8 +2,13 @@
 
 const uint8_t SEPERATION_LEN = 120;
 const uint8_t MIN_NUM_PULSES = 48;
+PGM_P EP_RF_CAPABILITIES = "/api/rf/capabilities";
+PGM_P EP_RF_TRANSMIT = "/api/rf/transmit";
 
-RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq):
+RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq, const uint32_t f_low, const uint32_t f_high):
+        freq(freq),
+        f_low(f_low),
+        f_high(f_high),
         bufPos(0),
         bufLen(0),
         lastBit(false),
@@ -32,58 +37,63 @@ void RcPulseTransceiver::restartReceive() {
 }
 
 void RcPulseTransceiver::loop() {
-    if (txMode > TX_IDLE) {
-        while (rfm69->getFifoLevel() < Rfm69::FIFO_FULL) {
+    switch (txMode) {
+    case TX_DATA: {
+        bool txDone = false;
+        while (!txDone && (rfm69->getFifoLevel() < Rfm69::FIFO_FULL)) {
             uint8_t txbyte = 0x00;
             uint8_t bitmask = 0x80;
+            uint8_t bitsWritten = 0;
 
             while (bitmask) {
+                if (pulseLen == 0) {
+                    if (bufPos == bufLen) {
+                        if (txRepeats > 0) {
+                            txRepeats--;
+                            bufPos = 0;
+                        }
+                        else {
+                            txDone = true;
+                            break;
+                        }
+                    }
+
+                    pulseLen = RcCodec::decodeTb(pulseBuf[bufPos++]);
+                }
+
                 if (lastBit)
                     txbyte |= bitmask;
                 bitmask >>= 1;
+                bitsWritten++;
 
                 pulseLen--;
-                if (pulseLen == 0) {
-                    switch (txMode) {
-                    case TX_SYMBOLS:
-                        if (bufPos == bufLen) {
-                            pulseLen = footer[0];
-                            txMode = TX_FOOTER1;
-                            break;
-                        }
-                        else
-                            pulseLen = pulseBuf[bufPos++];
-                        break;
-
-                    case TX_FOOTER1:
-                        pulseLen = footer[1];
-                        txMode = TX_FOOTER2;
-                        break;
-
-                    case TX_FOOTER2:
-                        if (txRepeats > 0) {
-                            txRepeats--;
-                            txMode = TX_SYMBOLS;
-                            bufPos = 0;
-                            pulseLen = pulseBuf[bufPos++];
-                        }
-                        else {
-                            txMode = TX_IDLE;
-                            rfm69->startReceive(0);
-                        return;
-                        }
-                    default:
-                        break;
-                    }
-
+                if (pulseLen == 0)
                     lastBit = !lastBit;
-                }
             }
 
-            rfm69->writeFifo(&txbyte, sizeof(txbyte));
+            // Flush final partial byte as padded low level to avoid truncating end of frame.
+            if (bitsWritten > 0)
+                rfm69->writeFifo(&txbyte, sizeof(txbyte));
         }
+
+        if (txDone)
+            txMode = TX_DRAIN;
+
         return;
     }
+
+    case TX_DRAIN:
+        if (rfm69->getFifoLevel() == Rfm69::FIFO_EMPTY) {
+            txMode = TX_IDLE;
+            rfm69->startReceive(0);
+        }
+        return;
+
+    case TX_IDLE:
+    default:
+        break;
+    }
+
     if (txQue.size() > 0) {
         onMqttMessage(txQue[0].path, txQue[0].payload);
         txQue.erase(txQue.begin());
@@ -167,11 +177,41 @@ bool RcPulseTransceiver::canHandle(AsyncWebServerRequest *request __attribute__(
     if (request->url().startsWith(F("/send/")))
         return true;
 
+    if (request->method() == HTTP_GET && request->url().compareTo(FPSTR(EP_RF_CAPABILITIES)) == 0)
+        return true;
+
+    if (request->method() == HTTP_POST && request->url().compareTo(FPSTR(EP_RF_TRANSMIT)) == 0)
+        return true;
+
+
     return false;
 }
 
 void RcPulseTransceiver::handleRequest(AsyncWebServerRequest *request) {
     if (request->method() == HTTP_GET) {
+        if (request->url().compareTo(FPSTR(EP_RF_CAPABILITIES)) == 0) {
+            JsonDocument doc;
+            doc[F("device_name")] = F("RFM Gateway");
+
+            JsonArray ranges = doc[F("supported_frequency_ranges")].to<JsonArray>();
+            JsonArray range = ranges.add<JsonArray>();
+            range.add(f_low);
+            range.add(f_high);
+
+            JsonArray mods = doc[F("supported_modulations")].to<JsonArray>();
+            mods.add(F("ook"));
+
+            AsyncResponseStream *response = request->beginResponseStream(FPSTR(APP_JSON));
+            serializeJson(doc, *response);
+            request->send(response);
+            return;
+        }
+
+        if (!request->url().startsWith(F("/send/"))) {
+            request->send(404, F("text/plain"), F("not found"));
+            return;
+        }
+
         if (txMode != TX_IDLE) {
             request->send(409, F("text/plain"), F("transmitter busy"));
             return;
@@ -188,11 +228,14 @@ void RcPulseTransceiver::handleRequest(AsyncWebServerRequest *request) {
 
         RcCodec* codec = RcCodec::encode(path, payload, pulseBuf, bufLen);
         if (codec) {
-            sendPulseBuf(*codec);
+            txRepeats = codec->getTxRepeats();
+            sendPulseBuf();
             request->send(200);
         }
         else
             request->send(400, F("text/plain"), F("parameter error"));
+
+        return;
     }
 }
 
@@ -206,9 +249,29 @@ void RcPulseTransceiver::handleBody(AsyncWebServerRequest *request __attribute__
     if (tmp.length() == total) {
         JsonDocument doc;
         if (deserializeJson(doc, tmp) == DeserializationError::Ok) {
+            if (request->url().compareTo(FPSTR(EP_RF_TRANSMIT)) == 0) {
+                Serial.println("Transmit request: " + tmp);
+
+                JsonArray timings = doc[F("timings_us")].as<JsonArray>();
+                bufLen = 0;
+                for (JsonVariant v : timings)
+                    pulseBuf[bufLen++] = RcCodec::encodeTb(abs(v.as<int16_t>()));
+
+                if (bufLen == 0) {
+                    request->send(400, F("text/plain"), F("missing timings"));
+                    return;
+                }
+
+                txRepeats = doc[F("repeat_count")] | 3;
+                sendPulseBuf();
+                request->send(200);
+                return;
+            }
+
             RcCodec *codec = RcCodec::encode(doc, pulseBuf, bufLen);
             if (codec) {
-                sendPulseBuf(*codec);
+                txRepeats = codec->getTxRepeats();
+                sendPulseBuf();
                 request->send(200);
             }
             else
@@ -243,8 +306,10 @@ bool RcPulseTransceiver::onMqttMessage(const String topic, const String payload)
     else 
         return false;
 
-    if (codec)
-        sendPulseBuf(*codec);
+    if (codec) {
+        txRepeats = codec->getTxRepeats();
+        sendPulseBuf();
+    }
     else
         ws.textAll(F("encoding error!"));
 
@@ -255,12 +320,10 @@ bool RcPulseTransceiver::sendDiscovery(JsonDocument &doc) {
     return RcCodec::sendDiscovery(doc);
 }
 
-void RcPulseTransceiver::sendPulseBuf(RcCodec& codec) {
-    txMode = TX_SYMBOLS;
+void RcPulseTransceiver::sendPulseBuf() {
+    txMode = TX_DATA;
     lastBit = true;
-    txRepeats = codec.getTxRepeats();
-    codec.getFooter(footer);
     bufPos = 0;
-    pulseLen = pulseBuf[bufPos++];
+    pulseLen = 0;
     rfm69->send(nullptr, 0, false); // start transmitting packet with unlimited length
 }

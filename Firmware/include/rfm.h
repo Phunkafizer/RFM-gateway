@@ -15,7 +15,6 @@
 
 class RfmBase {
 protected:
-    uint8_t readReg(const uint8_t reg);
     uint16_t readReg16(const uint8_t reg);
     void readFifo(uint8_t *buf, const size_t size);
     void writeReg(const uint8_t reg, const uint8_t value);
@@ -24,8 +23,9 @@ protected:
     void setReg(const uint8_t reg, const uint8_t set, const uint8_t clear);
     uint8_t pinSS;
 public:
-    virtual void begin(const uint8_t pinSS);
     virtual ~RfmBase() {}
+    virtual void begin(const uint8_t pinSS);
+    uint8_t readReg(const uint8_t reg);
 };
 
 class Rfm69: public RfmBase {

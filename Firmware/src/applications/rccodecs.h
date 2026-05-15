@@ -30,7 +30,7 @@ protected:
         uint8_t symbolTable[];
     } *params;
     PGM_P name;
-    uint16_t tbToPulses(const uint8_t tb, const uint16_t timebase) const;
+    uint8_t tbToPulses(const uint8_t tb, const uint16_t timebase) const;
     virtual uint8_t encodePulses(uint8_t *pulseBuf, const uint16_t timebase = 0);
     virtual bool encodeSymbols(String path, String payload) = 0;
     virtual bool encodeSymbols(JsonDocument &doc) = 0;
@@ -58,7 +58,8 @@ public:
     static bool decode(const uint8_t *pulseBuf, const uint8_t len);
     static bool sendDiscovery(JsonDocument &doc);
     uint8_t getTxRepeats() const;
-    void getFooter(uint16_t footer[2]) const;
+    static uint8_t encodeTb(const uint16_t time);
+    static uint16_t decodeTb(const uint8_t packed);
 };
 
 /* Tristate coding (Intertechno old, ...)

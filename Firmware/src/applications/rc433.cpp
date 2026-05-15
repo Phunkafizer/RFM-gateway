@@ -3,7 +3,7 @@
 #include "rc433html.h"
 
 Rc433Transceiver::Rc433Transceiver(const JsonObject &conf):
-        RcPulseTransceiver(433920000UL) {
+        RcPulseTransceiver(433920000UL, 433050000UL, 434790000UL) {
 
     html = rc433html;
     

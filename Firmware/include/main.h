@@ -9,5 +9,6 @@ extern AsyncWebSocket ws;
 extern String baseTopic;
 extern Rfm69 *rfm69;
 extern AsyncWebServer websrv;
+extern PGM_P APP_JSON;
 
 extern String getAvailabilityTopic();

@@ -70,11 +70,6 @@ uint8_t RcCodec::getTxRepeats() const {
     return params->txRepeats;
 }
 
-void RcCodec::getFooter(uint16_t footer[2]) const {
-    footer[0] = tbToPulses(params->footer[0], params->timebase);
-    footer[1] = tbToPulses(params->footer[1], params->timebase);
-}
-
 /**
  * @brief decodes given pulsebuf to symbols
  * Decoded symbols are saved in static variable "symbolBuffer"
@@ -253,9 +248,42 @@ RcCodec* RcCodec::encode(JsonDocument &doc, uint8_t *pulseBuf, uint8_t &pulseBuf
     return nullptr;
 }
 
-uint16_t RcCodec::tbToPulses(const uint8_t ticks, const uint16_t timebase) const {
+static const uint8_t SHIFT_LUT[] = {0, 1, 2, 4};
+
+uint8_t RcCodec::tbToPulses(const uint8_t ticks, const uint16_t timebase) const {
     uint16_t tb = (timebase == 0) ? params->timebase : timebase;
-    return (tb * ticks + (PULSEWIDTHUS / 2)) / PULSEWIDTHUS;
+    return encodeTb(tb * ticks);
+}
+
+/**
+    * @brief encodes a time duration in µS to a value in units of receiver's sampling time
+    * The result is packed into 1 byte, 2 bits for exponent, 6 bits for mantissa
+*/
+uint8_t RcCodec::encodeTb(const uint16_t time) {
+    uint16_t ticks = (time + (PULSEWIDTHUS / 2)) / PULSEWIDTHUS;
+
+    // pack into 1 byte, 2 bits for exponent, 6 bits for mantissa
+    uint8_t exp_idx = 0;
+    uint16_t mant = ticks;
+
+    while (true) {
+        uint8_t shift = SHIFT_LUT[exp_idx];
+        if (shift > 0)
+            mant = (ticks + (1 << (shift - 1))) >> shift;
+
+        if ( (mant <= (1<<6)) || (exp_idx == sizeof(SHIFT_LUT) - 1) )
+            break;
+
+        exp_idx++;
+    }
+
+    return (exp_idx << 6) | ((mant - 1) & 0x3F);
+}
+
+uint16_t RcCodec::decodeTb(const uint8_t packed) {
+    const uint8_t exp_idx = (packed >> 6) & 0x03;
+    const uint16_t mant = (packed & 0x3F) + 1;
+    return mant << SHIFT_LUT[exp_idx];
 }
 
 /**
@@ -271,6 +299,8 @@ uint8_t RcCodec::encodePulses(uint8_t *pulseBuf, const uint16_t timebase) {
             pulseBuf[result++] = tbToPulses(params->symbolTable[symbolBuf[s] * params->pulsesPerSymbol + p], timebase);
         }
     }
+    pulseBuf[result++] = tbToPulses(params->footer[0], timebase);
+    pulseBuf[result++] = tbToPulses(params->footer[1], timebase);
     return result;
 }
 

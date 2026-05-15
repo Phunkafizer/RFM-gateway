@@ -30,9 +30,10 @@ enum FreqBand : uint8_t {
     FREQ_BAND_915 = 3
 };
 
+PGM_P APP_JSON PROGMEM = "application/json";
+
 static const char FILE_RADIO[] PROGMEM = "radio.json";
 static const char FILE_CONFIG[] PROGMEM = "config.json";
-static const char APP_JSON[] PROGMEM = "application/json";
 static const char HOSTNAME[] PROGMEM = "rfm-gateway";
 static const char STR_AP_NAME[] PROGMEM = AP_NAME;
 static const char STR_AP_PASS[] PROGMEM = AP_PASS;
@@ -40,6 +41,7 @@ static const IPAddress apAddress(4, 3, 2, 1);
 static const IPAddress apSubnet(255, 255, 255, 0);
 static const uint16_t WEBPORT = 80;
 static const uint8_t DNS_PORT = 53;
+static const int MQTT_RETRY_INTERVAL_MS = 5000;
 
 AsyncWebServer websrv(WEBPORT);
 AsyncWebSocket ws("/ws");
@@ -53,6 +55,7 @@ String mqttHost;
 String mqttUser;
 String mqttPass;
 String baseTopic;
+uint32_t mqttNextReconnectAt = 0;
 
 Rfm69 *rfm69 = nullptr;
 
@@ -60,6 +63,9 @@ Ticker ledblink;
 uint16_t leddata = 0x8000;
 
 JsonDocument discJson;
+bool startMdnsFlag = false;
+bool startMdnsApFlag = false;
+bool mdnsStarted = false;
 
 String getAvailabilityTopic() {
     return baseTopic + F("/status");
@@ -72,6 +78,40 @@ void ledTickcb() {
     mask >>= 1;
     if (!mask)
         mask = 0x8000;
+}
+
+bool startMdns() {
+    if (mdnsStarted) {
+        SDBGLN("mDNS already started");
+        return true;
+    }
+
+    if (hostname.isEmpty())
+        hostname = FPSTR(HOSTNAME);
+    
+    mdnsStarted = true;
+    
+    // Don't close if already running - just restart the service
+    if (!MDNS.begin(hostname.c_str())) {
+        MDNS.close();
+        if (!MDNS.begin(hostname.c_str())) {
+            mdnsStarted = false;
+            return false;
+        }
+    }
+    
+    MDNSResponder::hMDNSService hService = MDNS.addService(hostname.c_str(), "http", "tcp", WEBPORT);
+    if (hService) {
+        MDNSResponder::hMDNSTxt hTxt = MDNS.addServiceTxt(hService, "model", "rfm-gateway");
+        
+        // Ensure announcement is sent
+        MDNS.update();
+        yield();
+        MDNS.update();
+    } else {
+        mdnsStarted = false;
+    }
+    return true;
 }
 
 bool loadRadioSetup() {
@@ -113,12 +153,8 @@ void setConfig(const JsonObject &obj) {
         hostname = obj[F("hostname")].as<String>();
         WiFi.setHostname(hostname.c_str());
 
-        if (WiFi.localIP().isSet()) {
-            MDNS.close();
-            if (!MDNS.begin(hostname.c_str())) {
-                SDBGLN("mDNS restart failed");
-            }
-        }
+        if (WiFi.localIP().isSet())
+            startMdns();
     }
 
     if (!obj[F("mqtt")].isNull()) {
@@ -143,6 +179,7 @@ void setConfig(const JsonObject &obj) {
 
         mqtt.setServer(mqttHost.c_str(), jMqtt[F("port")] | 1883);
         mqtt.setBufferSize(1024);
+        mqttNextReconnectAt = 0;
     }
 
     if (!obj[F("application")].isNull()) {
@@ -215,12 +252,12 @@ void wiFiEvent(WiFiEvent_t event) {
     SDBG("wiFiEvent ");
     SDBGLN((int) event);
 
+    // Defer mDNS (re)start to loop context when STA gets an IP.
     if (event == WIFI_EVENT_STAMODE_GOT_IP) {
+        if (hostname.isEmpty())
+            hostname = FPSTR(HOSTNAME);
         WiFi.setHostname(hostname.c_str());
-        MDNS.close();
-        if (!MDNS.begin(hostname.c_str())) {
-            SDBGLN("mDNS start failed");
-        }
+        startMdnsFlag = true;
     }
 
     if (event == WIFI_EVENT_STAMODE_DISCONNECTED) {
@@ -288,6 +325,9 @@ void setup() {
         WiFi.mode(WIFI_AP_STA);
         dnsServer.start(DNS_PORT, "*", apAddress);
         dnsServer.processNextRequest();
+        // In AP+STA mode, delay mDNS startup until STA has an IP.
+        // Starting on AP first can prevent expected LAN discovery behavior.
+        startMdnsApFlag = false;
     }
 
     File f = LittleFS.open(FPSTR(FILE_CONFIG), "r");
@@ -298,12 +338,12 @@ void setup() {
         f.close();
     }
 
-    WiFi.setHostname(hostname.c_str());
-    WiFi.begin();
+    if (hostname.isEmpty())
+        hostname = FPSTR(HOSTNAME);
 
-    if (!MDNS.begin(hostname.c_str())) {
-        SDBGLN("mDNS start failed");
-    }
+    WiFi.setHostname(hostname.c_str());
+    WiFi.onEvent(wiFiEvent);
+    WiFi.begin();
 
     discJson.set(nullptr);
     
@@ -379,6 +419,7 @@ void setup() {
 
         JsonObject jMqtt = doc[F("mqtt")].to<JsonObject>();
         jMqtt[F("state")] = mqtt.state();
+        jMqtt[F("connected")] = mqtt.connected();
 
         AsyncResponseStream *response = request->beginResponseStream(FPSTR(APP_JSON));
         serializeJson(doc, *response);
@@ -581,6 +622,20 @@ void setup() {
             request->send(404);
     });
 
+    websrv.on(PSTR("/regdump"), HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (!rfm69) {
+            request->send(404);
+            return;
+        }
+
+        String result;
+        for (uint8_t reg= 0x00; reg <= 0x4F; reg++) {
+            uint8_t val = rfm69->readReg(reg);
+            result += String(reg, HEX) + ": " + String(val, HEX) + "<br>";
+        }
+        request->send(200, "text", result);
+    });
+
     websrv.onNotFound([](AsyncWebServerRequest *request) {
         request->send(404);
     });
@@ -591,12 +646,33 @@ void setup() {
 
 
 void loop() {
-    MDNS.update();
+    if (startMdnsFlag) {
+        startMdnsFlag = false;
 
+        // In AP+STA mode, mDNS may have been started on AP first.
+        // Rebind by closing and restarting once STA has an IP.
+        if (mdnsStarted) {
+            MDNS.close();
+            mdnsStarted = false;
+        }
+
+        if (startMdns()) {
+            MDNS.notifyAPChange();
+            MDNS.update();
+        }
+    }
+    
+    if (startMdnsApFlag) {
+        startMdnsApFlag = false;
+        startMdns();
+    }
+
+    MDNS.update();
     mqtt.loop();
 
     if (WiFi.localIP().isSet()) {
-        if (!mqttHost.isEmpty() && !mqtt.connected()) {
+        const uint32_t now = millis();
+        if (!mqttHost.isEmpty() && !mqtt.connected() && (mqttNextReconnectAt == 0 || (int32_t) (now - mqttNextReconnectAt) >= 0)) {
             String id = WiFi.macAddress();
 
             id.remove(0, 9);
@@ -617,13 +693,16 @@ void loop() {
                 "offline"
             );
             if (con) {
+                mqttNextReconnectAt = 0;
                 mqtt.publish(statusTopic.c_str(), "online", true);
                 String subtopic = baseTopic + F("/#");
                 mqtt.subscribe(subtopic.c_str());
                 ws.textAll(F("MQTT connected"));
             }
-            else
+            else {
+                mqttNextReconnectAt = now + MQTT_RETRY_INTERVAL_MS;
                 ws.textAll(F("MQTT failure") + String(mqtt.state()));
+            }
         }
     }
 
