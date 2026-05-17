@@ -4,14 +4,18 @@ const uint8_t SEPERATION_LEN = 120;
 const uint8_t MIN_NUM_PULSES = 48;
 PGM_P EP_RF_CAPABILITIES = "/api/rf/capabilities";
 PGM_P EP_RF_TRANSMIT = "/api/rf/transmit";
+PGM_P PARAM_TIMEBASE_US = "timings_us";
+PGM_P PARAM_TIMEBASE = "timebase";
+PGM_P PARAM_REPEAT_COUNT = "repeat_count";
+PGM_P PARAM_TIMINGS = "timings";
+PGM_P PARAM_FREQUENCY = "frequency";
 
 RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq, const uint32_t f_low, const uint32_t f_high):
-        freq(freq),
-        f_low(f_low),
-        f_high(f_high),
         bufPos(0),
         bufLen(0),
         lastBit(false),
+        f_low(f_low),
+        f_high(f_high),
         pulseLen(1),
         txMode(TX_IDLE) {
     Rfm69::Rfm69Config cfg[] = {
@@ -25,14 +29,15 @@ RcPulseTransceiver::RcPulseTransceiver(const uint32_t freq, const uint32_t f_low
         {Rfm69::RegPacketConfig1, 0x00}, // fixed or unlimited length, no whitening, no crc
     };
 
+    this->freq = freq;
     rfm69->writeConfig(cfg, sizeof(cfg) / sizeof(cfg[0]));
-    rfm69->setFreq(freq);
     rfm69->setBitrate(BITRATE);
     rfm69->setTxPower(13);
-    rfm69->startReceive(0);
+    restartReceive();
 }
 
 void RcPulseTransceiver::restartReceive() {
+    rfm69->setFreq(freq);
     rfm69->startReceive(0);
 }
 
@@ -57,7 +62,6 @@ void RcPulseTransceiver::loop() {
                             break;
                         }
                     }
-
                     pulseLen = RcCodec::decodeTb(pulseBuf[bufPos++]);
                 }
 
@@ -250,19 +254,29 @@ void RcPulseTransceiver::handleBody(AsyncWebServerRequest *request __attribute__
         JsonDocument doc;
         if (deserializeJson(doc, tmp) == DeserializationError::Ok) {
             if (request->url().compareTo(FPSTR(EP_RF_TRANSMIT)) == 0) {
-                Serial.println("Transmit request: " + tmp);
+                JsonArray timings;
+                int timebase = 1;
 
-                JsonArray timings = doc[F("timings_us")].as<JsonArray>();
-                bufLen = 0;
-                for (JsonVariant v : timings)
-                    pulseBuf[bufLen++] = RcCodec::encodeTb(abs(v.as<int16_t>()));
-
-                if (bufLen == 0) {
+                if (doc[FPSTR(PARAM_TIMEBASE_US)].is<JsonArray>()) {
+                    timings = doc[FPSTR(PARAM_TIMEBASE_US)].as<JsonArray>();
+                }
+                else if (doc[FPSTR(PARAM_TIMINGS)].is<JsonArray>() && doc[FPSTR(PARAM_TIMEBASE)].is<int>()) {
+                    timings = doc[FPSTR(PARAM_TIMINGS)].as<JsonArray>();
+                    timebase = doc[FPSTR(PARAM_TIMEBASE)];
+                }
+                
+                if (timings.size() == 0) {
                     request->send(400, F("text/plain"), F("missing timings"));
                     return;
                 }
+                
+                bufLen = 0;
+                for (JsonVariant p : timings)
+                    pulseBuf[bufLen++] = RcCodec::encodeTb(abs(p.as<int16_t>()) * timebase);
 
-                txRepeats = doc[F("repeat_count")] | 3;
+                txRepeats = doc[FPSTR(PARAM_REPEAT_COUNT)] | 3;
+                if (doc[FPSTR(PARAM_FREQUENCY)].is<uint32_t>())
+                    rfm69->setFreq(doc[FPSTR(PARAM_FREQUENCY)]);
                 sendPulseBuf();
                 request->send(200);
                 return;

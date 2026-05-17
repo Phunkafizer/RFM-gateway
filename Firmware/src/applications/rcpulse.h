@@ -8,7 +8,6 @@ private:
     uint8_t bufPos;
     uint8_t bufLen;
     bool lastBit;
-    uint32_t freq;
     uint32_t f_low;
     uint32_t f_high;
     uint16_t pulseLen;

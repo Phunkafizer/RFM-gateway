@@ -214,11 +214,11 @@ void setConfig(const JsonObject &obj) {
         rfm69->setTxPower(pwr);
         const int8_t rxThresh = obj[F("rxThresh")] | -70;
         rfm69->setRxThresh(rxThresh);
-        if (obj[F("rffreq")].is<double>()) {
-            uint32_t freq = obj[F("rffreq")].as<float>() * 1e6;
-            rfm69->setFreq(freq);
-        }
         if (radioapp != nullptr)
+            if (obj[F("rffreq")].is<double>()) {
+                uint32_t freq = obj[F("rffreq")].as<float>() * 1e6;
+                setFreq(freq);
+            }
             radioapp->restartReceive();
     }
 }

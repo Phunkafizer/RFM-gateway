@@ -14,6 +14,12 @@ bool RadioApplication::onMqttMessage(String topic, String payload) {
     return false;
 }
 
+void RadioApplication::setFreq(uint32_t freq) {
+    this->freq = freq;
+    if (rfm69)
+        rfm69->setFreq(freq);
+}
+
 void RadioApplication::publish(String topic, JsonDocument &doc) {
     String jsdata;
     serializeJson(doc, jsdata);
