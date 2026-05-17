@@ -217,7 +217,7 @@ void setConfig(const JsonObject &obj) {
         if (radioapp != nullptr)
             if (obj[F("rffreq")].is<double>()) {
                 uint32_t freq = obj[F("rffreq")].as<float>() * 1e6;
-                setFreq(freq);
+                radioapp->setFreq(freq);
             }
             radioapp->restartReceive();
     }

@@ -569,7 +569,7 @@ void ITTristate::onDecodedPulses() {
 
 RcCodec::CodecParams IT32::defParams = {
     275,        // timebase
-    250, 350,   // timebase min / max
+    225, 350,   // timebase min / max
     32,         // numSymbols; dimmers may have for symbols
     27,         // 27 symbols are always 0 or 1
     3,          // number of symbols in symboltable
@@ -592,7 +592,7 @@ IT32::IT32() {
 uint8_t IT32::encodePulses(uint8_t *pulseBuf, const uint16_t timebase) {
     // add sync symbol 
     pulseBuf[0] = tbToPulses(1, timebase);
-    pulseBuf[1] = tbToPulses(11, timebase);
+    pulseBuf[1] = tbToPulses(10, timebase);
     return RcCodec::encodePulses(&pulseBuf[2], timebase) + 2;
 }
 
