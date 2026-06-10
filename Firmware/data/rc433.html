@@ -101,11 +101,17 @@
             <h3 class="field-label">ID (0–1048575)</h3>
             <input type="text" id="emylo_id" placeholder="e.g. 123456">
         </div>
+        <div>
+            <h3 class="field-label">Key</h3>
+            <select id="emylo_key">
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+            </select>
+        </div>
         <div class="btnbar">
-            <button onclick="rc433SendCmd('A')">A</button>
-            <button onclick="rc433SendCmd('B')">B</button>
-            <button onclick="rc433SendCmd('C')">C</button>
-            <button onclick="rc433SendCmd('D')">D</button>
+            <button onclick="rc433Send()">send</button>
         </div>
     </div>
 
@@ -164,7 +170,7 @@
             break;
         case "emylo":
             doc.id  = parseInt(_("#emylo_id").value);
-            doc.key = cmd;
+            doc.key = _("#emylo_key").value;
             break;
         case "EV1527":
             doc.id   = parseInt(_("#ev1527_id").value);

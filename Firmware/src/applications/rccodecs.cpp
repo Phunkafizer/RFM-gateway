@@ -673,7 +673,7 @@ RcCodec::CodecParams PilotaCasa::defParams = {
     2,          // numTableSymbols
     2,          // number of pulses per symbol
     3,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
-    {1, 40},    // footer TODO check values!
+    {1, 11},    // footer TODO check values!
     5,          // tx repeats
     {
         2, 1,   // symbol 0: 0b0
@@ -763,7 +763,7 @@ RcCodec::CodecParams EV1527Codec::defParams = {
     2,          // numTableSymbols
     2,          // number of pulses per symbol
     3,          // rx quality factor q, matching windows s-(s/q) <= x <= s+(s/q)
-    {1, 31},    // footer
+    {1, 170},    // footer
     5,          // tx repeats
     {
         1, 3,   // symbol 0: 0b0

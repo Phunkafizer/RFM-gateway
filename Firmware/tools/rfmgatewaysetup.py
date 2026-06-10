@@ -23,7 +23,7 @@ except ImportError:
     plt = None
     Slider = None
 
-GATEWAY_IP = 'rfm433.local'
+GATEWAY_IP = '4.3.2.1'
 FSTEP = 32e6 / (1 << 19)
 
 # Frequency bands: [0]=315MHz, [1]=433MHz, [2]=868MHz, [3]=915MHz

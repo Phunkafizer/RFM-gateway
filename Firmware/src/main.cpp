@@ -66,6 +66,7 @@ JsonDocument discJson;
 bool startMdnsFlag = false;
 bool startMdnsApFlag = false;
 bool mdnsStarted = false;
+uint32_t nextMdnsRetryAt = 0;
 
 String getAvailabilityTopic() {
     return baseTopic + F("/status");
@@ -102,11 +103,8 @@ bool startMdns() {
     
     MDNSResponder::hMDNSService hService = MDNS.addService(hostname.c_str(), "http", "tcp", WEBPORT);
     if (hService) {
-        MDNSResponder::hMDNSTxt hTxt = MDNS.addServiceTxt(hService, "model", "rfm-gateway");
-        
-        // Ensure announcement is sent
-        MDNS.update();
-        yield();
+        MDNS.addServiceTxt(hService, "rf_api", "1");
+        MDNS.addServiceTxt(hService, "model", "rfm-gateway");
         MDNS.update();
     } else {
         mdnsStarted = false;
@@ -646,6 +644,8 @@ void setup() {
 
 
 void loop() {
+    const uint32_t nowMs = millis();
+
     if (startMdnsFlag) {
         startMdnsFlag = false;
 
@@ -660,11 +660,27 @@ void loop() {
             MDNS.notifyAPChange();
             MDNS.update();
         }
+
+        nextMdnsRetryAt = nowMs + 5000;
     }
     
     if (startMdnsApFlag) {
         startMdnsApFlag = false;
         startMdns();
+        nextMdnsRetryAt = nowMs + 5000;
+    }
+
+    // Fallback for cases where Wi-Fi events are missed or mDNS start fails transiently.
+    if (WiFi.localIP().isSet() && !mdnsStarted) {
+        if ((int32_t) (nowMs - nextMdnsRetryAt) >= 0) {
+            if (startMdns()) {
+                MDNS.notifyAPChange();
+                MDNS.update();
+            }
+            nextMdnsRetryAt = nowMs + 5000;
+        }
+    } else if (!WiFi.localIP().isSet()) {
+        nextMdnsRetryAt = 0;
     }
 
     MDNS.update();

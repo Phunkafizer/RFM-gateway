@@ -1,0 +1,28 @@
+{
+  "domain": "rfm_gateway",
+  "name": "RFM Gateway",
+  "version": "0.1.0",
+  "codeowners": ["@phunkafizer"],
+  "config_flow": true,
+  "dependencies": ["radio_frequency"],
+  "documentation": "https://www.home-assistant.io/integrations/rfm_gateway",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "quality_scale": "bronze",
+  "zeroconf": [
+    {
+      "properties": {
+        "rf_api": "1",
+        "model": "rfm-gateway"
+      },
+      "type": "_http._tcp.local."
+    },
+    {
+      "properties": {
+        "rf_api": "1",
+        "model": "RaspyRFM"
+      },
+      "type": "_http._tcp.local."
+    }
+  ]
+}
