@@ -1,15 +1,15 @@
 {
   "domain": "rfm_gateway",
   "name": "RFM Gateway",
-  "version": "0.1.0",
   "codeowners": ["@phunkafizer"],
   "config_flow": true,
   "dependencies": ["radio_frequency"],
   "documentation": "https://www.seegel-systeme.de/2023/09/15/rfm-wifi-gateway-a-radio-to-wifi-bridge/",
   "integration_type": "hub",
   "iot_class": "local_push",
-  "quality_scale": "bronze",
   "issue_tracker": "https://github.com/Phunkafizer/RFM-gateway/issues/",
+  "quality_scale": "bronze",
+  "version": "0.1.0",
   "zeroconf": [
     {
       "properties": {
