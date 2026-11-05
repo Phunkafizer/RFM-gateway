@@ -5,10 +5,11 @@
   "codeowners": ["@phunkafizer"],
   "config_flow": true,
   "dependencies": ["radio_frequency"],
-  "documentation": "https://www.home-assistant.io/integrations/rfm_gateway",
+  "documentation": "https://www.seegel-systeme.de/2023/09/15/rfm-wifi-gateway-a-radio-to-wifi-bridge/",
   "integration_type": "hub",
   "iot_class": "local_push",
   "quality_scale": "bronze",
+  "issue_tracker": "https://github.com/Phunkafizer/RFM-gateway/issues/",
   "zeroconf": [
     {
       "properties": {
