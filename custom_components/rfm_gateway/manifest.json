@@ -21,7 +21,7 @@
     {
       "properties": {
         "rf_api": "1",
-        "model": "RaspyRFM"
+        "model": "raspyrfm"
       },
       "type": "_http._tcp.local."
     }
