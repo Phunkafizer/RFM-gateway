@@ -182,6 +182,9 @@ public:
     void writeConfig(const Rfm69Config cfg[], const uint8_t num);
 
     void send(const uint8_t *data, const int size, const bool varSize = true);
+    // Fixed-length TX: load up to 64 bytes, then refill using writeFifo().
+    uint8_t startSend(const uint8_t *data, const uint16_t size);
+    void clearFifo();
     void txTest(const uint32_t freq_hz, const int16_t f_corr, const int8_t pwr, const uint16_t baud);
     
     bool isIdle();
@@ -190,6 +193,7 @@ public:
     uint8_t getPayload(uint8_t *buf);
     uint8_t getPayload(uint8_t *buf, const uint8_t maxlen);
     int8_t getRssi();
+    int32_t getFeiHz();
     FifoLevel getFifoLevel();
     void writeFifo(const uint8_t *buf, uint8_t len);
 };

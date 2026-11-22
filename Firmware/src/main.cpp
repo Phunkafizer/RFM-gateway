@@ -8,6 +8,7 @@
 #include "main.h"
 #include "applications/868gw.h"
 #include "applications/fs20.h"
+#include "applications/maxcul.h"
 #include "applications/rc433.h"
 #include "html.h"
 #include "global.h"
@@ -103,8 +104,8 @@ bool startMdns() {
     
     MDNSResponder::hMDNSService hService = MDNS.addService(hostname.c_str(), "http", "tcp", WEBPORT);
     if (hService) {
-        MDNS.addServiceTxt(hService, "rf_api", "1");
-        MDNS.addServiceTxt(hService, "model", "rfm-gateway");
+        if (radioapp != nullptr)
+            radioapp->announceMdns(hService);
         MDNS.update();
     } else {
         mdnsStarted = false;
@@ -201,10 +202,18 @@ void setConfig(const JsonObject &obj) {
             if (rfm69 != nullptr)
                 radioapp = new FS20(appSettings);
             break;
+        case 3:
+            if (rfm69 != nullptr)
+                radioapp = new MaxCul(appSettings);
+            break;
 
         default:
             break;
         }
+
+        // Application specific mDNS services changed - re-announce.
+        if (mdnsStarted)
+            startMdnsFlag = true;
     }
 
     if (rfm69 != nullptr) {

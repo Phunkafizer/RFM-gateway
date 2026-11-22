@@ -31,6 +31,7 @@ public:
     RcPulseTransceiver(const uint32_t freq, const uint32_t f_low, const uint32_t f_high);
     void loop() override;
     void restartReceive() override;
+    void announceMdns(MDNSResponder::hMDNSService hHttpService) override;
     bool onMqttMessage(const String topic, const String payload) override;
     bool sendDiscovery(JsonDocument &doc) override;
 };

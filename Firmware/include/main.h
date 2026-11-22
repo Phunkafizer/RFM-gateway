@@ -7,6 +7,7 @@
 extern PubSubClient mqtt;
 extern AsyncWebSocket ws;
 extern String baseTopic;
+extern String hostname;
 extern Rfm69 *rfm69;
 extern AsyncWebServer websrv;
 extern PGM_P APP_JSON;

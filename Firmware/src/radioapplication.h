@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ArduinoJson.h>
+#include <ESP8266mDNS.h>
 #include "main.h"
 
 class RadioApplication: public AsyncWebHandler {
@@ -14,6 +15,9 @@ public:
     virtual bool onMqttMessage(String topic, String payload);
     virtual bool sendDiscovery(JsonDocument &doc) = 0;
     virtual void restartReceive() {}
+    // Announce application specific mDNS services / TXT records.
+    // hHttpService is the handle of the already announced HTTP service.
+    virtual void announceMdns(MDNSResponder::hMDNSService hHttpService) { (void) hHttpService; }
     void setFreq(uint32_t freq);
     void publish(String topic, JsonDocument &doc);
     

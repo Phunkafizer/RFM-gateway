@@ -278,9 +278,7 @@ bool Rfm69::payloadReady() {
 
 void Rfm69::send(const uint8_t *data, const int size, const bool varSize) {
     setMode(MODE_FS);
-    while (readReg(RegIrqFlags2) != 0) {
-        volatile uint8_t f = readReg(RegFifo);
-    }
+    clearFifo();
     if (varSize) { //variable length
         setReg(RegPacketConfig1, 1<<7, 1<<7);  // set PacketFormat
         writeReg(RegFifo, (uint8_t) size);
@@ -292,6 +290,21 @@ void Rfm69::send(const uint8_t *data, const int size, const bool varSize) {
 
     writeRegBuf(RegFifo, data, size);
     setMode(MODE_TX);
+}
+
+void Rfm69::clearFifo() {
+    writeReg(RegIrqFlags2, 1<<4);
+}
+
+uint8_t Rfm69::startSend(const uint8_t *data, const uint16_t size) {
+    setMode(MODE_FS);
+    clearFifo();
+    setReg(RegPacketConfig1, 0, 1<<7);
+    writeReg(RegPayloadLength, size > 255 ? 0 : size);
+    uint8_t initialSize = size > 64 ? 64 : size;
+    writeRegBuf(RegFifo, data, initialSize);
+    setMode(MODE_TX);
+    return initialSize;
 }
 
 void Rfm69::writeFifo(const uint8_t *buf, uint8_t size) {
@@ -369,4 +382,13 @@ uint8_t Rfm69::getPayload(uint8_t *buf, const uint8_t maxlen) {
 
 int8_t Rfm69::getRssi() {
     return rssi;
+}
+
+/**
+ * @brief carrier offset of the last FEI measurement (FeiStart on sync match)
+ *
+ * @return frequency error in Hz, positive = transmitter above LO
+ */
+int32_t Rfm69::getFeiHz() {
+    return int16_t(readReg16(RegFeiMsb)) * FSTEP;
 }

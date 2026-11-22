@@ -30,6 +30,7 @@ https://community.home-assistant.io/t/rfm-gateway-a-sub-ghz-bridge-to-home-assis
 - 433 MHz RC pulse gateway (receive and transmit)
 - 868 MHz sensor gateway (for supported sensor families)
 - 868 MHz FS20 gateway
+- MAX! CUL emulation (`maxcul`) over TCP port 2323
 - Home Assistant integration via MQTT discovery
 
 ## Typical applications
@@ -44,6 +45,44 @@ https://community.home-assistant.io/t/rfm-gateway-a-sub-ghz-bridge-to-home-assis
 - [custom_components/rfm_gateway/](custom_components/rfm_gateway/): Home Assistant custom integration
 - [PCB/](PCB/): hardware design files
 - [assets/](assets/): screenshots and images
+
+## MAX! via CUL application
+
+With an 868 MHz RFM69 or RFM69H module, select **maxcul (MAX! via CUL)** in
+the firmware web UI and save. Its default frequency is 868.300 MHz; adjust the
+RX threshold if necessary (the MAX! application allows down to -105 dBm).
+
+The application listens on **TCP port 2323**. In
+[MAX! via CUL](https://github.com/thnow/MAX-via-Cul), configure the gateway's
+hostname or IP and port 2323. This is separate from the HTTP-based RFM Gateway
+integration below, and does not require MQTT. Pair each MAX! device in MAX! via
+CUL; receiving its radio traffic alone does not register it in Home Assistant.
+Do not run the RaspyRFM gateway with the same controller address at the same
+time.
+
+The supported CUL commands are `V`, `X`, `Xhh`, `Zr`, `ZaXXXXXX`,
+`ZwXXXXXX`, `Zs<hex>`, `Zf<hex>` and the compatibility no-op `T01`.
+Received frames are sent as `Z<hex>\r\n`, including the length byte and without
+the RF CRC. RSSI is appended only for clients that enable it with `X21`.
+`Zs` uses a one-second wake-up preamble; `Zf` and automatic ACKs use a short
+preamble. `Za`/`Zw` follow culfw's automatic-ACK rules and report transmitted
+ACKs as Z-lines. `000000` disables the corresponding ACK address.
+
+TCP input and transmit queues are bounded. Slow clients are disconnected
+instead of blocking radio processing. `X` reports a bounded airtime budget
+(900 credits of 10 ms, refilling one credit per second); exhausted budget is
+reported as `LOVF`. The listener and its clients close when switching to
+another application. TCP is unencrypted and unauthenticated: use a trusted
+local network and do not expose port 2323 to the internet.
+
+Hardware-independent protocol tests are in
+[Firmware/test/maxcul/test_protocol.cpp](Firmware/test/maxcul/test_protocol.cpp).
+On a host with a C++17 compiler, run from the firmware directory:
+
+```sh
+g++ -std=c++17 -Wall -Wextra -Werror test/maxcul/test_protocol.cpp -o maxcul-test
+./maxcul-test
+```
 
 ## Home Assistant custom integration
 

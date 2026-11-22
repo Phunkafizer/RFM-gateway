@@ -41,6 +41,11 @@ void RcPulseTransceiver::restartReceive() {
     rfm69->startReceive(0);
 }
 
+void RcPulseTransceiver::announceMdns(MDNSResponder::hMDNSService hHttpService) {
+    MDNS.addServiceTxt(hHttpService, "rf_api", "1");
+    MDNS.addServiceTxt(hHttpService, "model", "rfm-gateway");
+}
+
 void RcPulseTransceiver::loop() {
     switch (txMode) {
     case TX_DATA: {

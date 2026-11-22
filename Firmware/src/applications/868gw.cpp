@@ -520,6 +520,8 @@ void Gw868::loop() {
         uint8_t buf[60];
         rfm69->getPayload(buf);
         int rssi = rfm69->getRssi();
+        // FEI was captured at sync match (FeiStart in Rfm69::loop).
+        int32_t feiHz = rfm69->getFeiHz();
 
         ws.textAll(F("<div class='rfframe'>"));
         String line;
@@ -531,7 +533,7 @@ void Gw868::loop() {
             line += String(buf[i], HEX) + ' ';
         }
 
-        line += String(rssi) + F(" dBm");
+        line += String(rssi) + F(" dBm, FEI ") + String(feiHz) + F(" Hz");
         ws.textAll(line);
 
         switch (currentRxMode) {

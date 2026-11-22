@@ -987,6 +987,7 @@
                             <option id="app_433_rcpulse" disabled value="0">433 MHz RC pulse gateway</option>
                             <option id="app_868gw" disabled value="1">868 MHz sensor gateway</option>
                             <option id="app_868_fs20" disabled value="2">868 MHz FS20 gateway</option>
+                            <option id="app_maxcul" disabled value="3">maxcul (MAX! via CUL)</option>
                         </select>
                     </div>
                     <div class="col50">
@@ -1076,6 +1077,11 @@
                 </div>
 
                 <div class="appsettings" hidden>
+                </div>
+                <div class="appsettings" hidden>
+                    <p>MAX! CUL emulation on TCP port 2323. In Home Assistant's MAX! via CUL
+                        integration, enter this gateway's hostname or IP and port 2323.
+                        Pair devices in that integration. MQTT is not required.</p>
                 </div>
             </fieldset>
 
@@ -1282,6 +1288,7 @@
                         // we have a 868 MHz RFM69(H) mmodule
                         _("#app_868gw").disabled = false;
                         _("#app_868_fs20").disabled = false;
+                        _("#app_maxcul").disabled = false;
                     }
 
                     for (let opt of __("#selradiotype option")) {
@@ -1716,8 +1723,9 @@
 
                 __(".appsettings")[selindex].hidden = false;
 
-                const freqPlaceholders = ["433.920", "868.300", "868.350"];
+                const freqPlaceholders = ["433.920", "868.300", "868.350", "868.300"];
                 _("#rffreq").placeholder = freqPlaceholders[selindex] ?? "";
+                _("#rxThreshSlider").min = selindex == 3 ? -105 : -90;
             }
 
             _("#txPwrSlider").oninput = (ev) => {

@@ -81,7 +81,7 @@ def flash_firmware(esp) -> None:
 
 def connect_to_wifi(profile, timeout=20, retries=3):
     def _netsh_connect():
-        print(f"Connecting to OTthing WiFi (profile: {profile})...")
+        print(f"Connecting to WiFi (profile: {profile})...")
         cmd = f'netsh wlan connect name="{profile}"'
         result = subprocess.run(["cmd", "/c", cmd], capture_output=True, text=True)
         if result.stdout.strip():
@@ -138,7 +138,7 @@ def connect_to_wifi(profile, timeout=20, retries=3):
 
         _warn(f"⚠ Device not reachable at {DEVICE_IP} after attempt {attempt}/{retries}, retrying netsh...")
 
-    _err(f"✗ OTthing WiFi did not become connected after {retries} attempt(s)")
+    _err(f"✗ WiFi did not become connected after {retries} attempt(s)")
     return False
 
 
